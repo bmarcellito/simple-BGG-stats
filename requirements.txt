@@ -1,7 +1,4 @@
 streamlit
 pandas
 plotly
-googleapiclient.discovery
-googleapiclient.http
-googleapiclient.errors
-google.oauth2
+google-api-python-client
