@@ -10,7 +10,7 @@ from datetime import datetime
 
 # WEB interface
 import streamlit as st
-import plotly as px
+import plotly.express as px
 
 # google drive
 import googleapiclient.discovery
@@ -397,7 +397,9 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
     my_bar.empty()
 
     if previous_file_exists:
-        gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
+        #gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
+        gdrive_delete_file(_service, previous_file_id)
+        gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
     else:
         gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
 
