@@ -605,6 +605,23 @@ def stat_basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_inf
     st.write(f'Median of plays with a specific game: {df_collection["numplays"].median()}')
 
 
+def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
+    st.checkbox('Include boardgame expansions as well', key="h_index_favor")
+    df_favourite_games = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+    df_favourite_games = pd.DataFrame(df_favourite_games.loc[df_favourite_games["user_rating"] > 0])
+    if "h_index_favor" in st.session_state:
+        if not st.session_state.h_index_favor:
+            df_favourite_games = df_favourite_games.query('type == "boardgame"')
+
+    df_favourite_games = df_favourite_games.sort_values(by=["user_rating", "numplays", "own"], ascending=False).head(15)
+    df_favourite_games = df_favourite_games[['name', 'user_rating', 'yearpublished', 'numplays',  'image']]
+    df_favourite_games.index = pd.RangeIndex(start=1, stop=len(df_favourite_games) + 1, step=1)
+    table_height = (len(df_favourite_games) + 1) * 35 + 3
+
+    st.dataframe(df_favourite_games, use_container_width=True, height=table_height,
+                 column_config={"image": st.column_config.ImageColumn("Image", width="small")},)
+
+
 def stat_not_played(collection: pd.DataFrame) -> None:
     # st.subheader("Owned games not played yet")
     games_owned = collection.loc[collection["own"] == 1]
@@ -629,10 +646,10 @@ def stat_games_by_year(df_collection: pd.DataFrame, cut: int) -> None:
     st.dataframe(played, hide_index=True)
 
 
-def stat_h_index(df_collection: pd.DataFrame, df_game_info: pd.DataFrame) -> None:
+def stat_h_index(df_collection: pd.DataFrame, df_game_db: pd.DataFrame) -> None:
     # st.subheader("H-index")
     st.checkbox('Include boardgame expansions as well', key="h_index_exp")
-    df_collection = pd.merge(df_collection, df_game_info, how="left", on="objectid", suffixes=("", "_y"))
+    df_collection = pd.merge(df_collection, df_game_db, how="left", on="objectid", suffixes=("", "_y"))
     df_collection = df_collection.sort_values(by="numplays", ascending=False).reset_index()
     if "h_index_exp" in st.session_state:
         if not st.session_state.h_index_exp:
@@ -798,7 +815,7 @@ def main():
                 my_plays = import_user_plays(my_service, bgg_username, download_in_days)
                 # global_: data independent from user
                 build_game_db(my_service, gdrive_processed, my_collection)
-                global_game_info = build_game_db(my_service, gdrive_processed, my_plays)
+                global_game_infodb = build_game_db(my_service, gdrive_processed, my_plays)
                 global_fresh_ranking = import_current_ranking(my_service, gdrive_processed)
                 global_historic_rankings = import_historic_ranking(my_service, gdrive_original, gdrive_processed,
                                                                    global_fresh_ranking)
@@ -811,24 +828,26 @@ def main():
             st.title(f'Statistics of {bgg_username}')
             option = st.selectbox('Choose a statistic',
                                   ('Basic statistics', 'Games tried grouped by year of publication',
-                                   'H-index', 'Owned games not played yet', 'Play statistics by year',
+                                   'H-index', 'Favourite games', 'Owned games not played yet', 'Play statistics by year',
                                    'Games known from BGG top list', 'Stat around game weight'),
                                   key='stat_selection')
             match option:
                 case "Basic statistics":
-                    stat_basics(my_collection, my_plays, global_game_info)
+                    stat_basics(my_collection, my_plays, global_game_infodb)
+                case "Favourite games":
+                    stat_favourite_games(my_collection, global_game_infodb)
                 case "Owned games not played yet":
                     stat_not_played(my_collection)
                 case "Games tried grouped by year of publication":
                     stat_games_by_year(my_collection, year_cut)
                 case "H-index":
-                    stat_h_index(my_collection, global_game_info)
+                    stat_h_index(my_collection, global_game_infodb)
                 case "Play statistics by year":
                     stat_yearly_plays(my_plays)
                 case "Games known from BGG top list":
                     stat_historic_ranking(global_historic_rankings, my_plays)
                 case "Stat around game weight":
-                    stat_by_weight(global_game_info, my_plays)
+                    stat_by_weight(global_game_infodb, my_plays)
         else:
             # user exists but no information
             st.title("Statistics")
