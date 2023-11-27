@@ -288,10 +288,13 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
     return df_historical
 
-
+@st.cache_data
 def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: str,
                   df: pd.DataFrame) -> pd.DataFrame:
-    st.caption("Importing detailed game information...")
+    if "user_rating" in df.columns.values:
+        st.caption("Importing detailed game information for user's collection...")
+    else:
+        st.caption("Importing detailed game information for user's plays...")
 
     items = gdrive_search(_service, "name contains 'game_infoDB.csv'")
     if not items:
