@@ -26,21 +26,19 @@ import re
 @st.cache_data
 def gdrive_authenticate() -> googleapiclient.discovery.Resource:
     scopes = ['https://www.googleapis.com/auth/drive']
-
     service_account_info = {
-      "type": "service_account",
-      "project_id": "simple-bgg-stat-service-acc",
-      "private_key_id": st.secrets["private_key_id"],
-      "private_key": st.secrets["private_key"],
-      "client_email": st.secrets["client_email"],
-      "client_id": st.secrets["client_id"],
-      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-      "token_uri": "https://oauth2.googleapis.com/token",
-      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/simple-bgg-stat-sa%40simple-bgg-stat-service-acc.iam.gserviceaccount.com",
-      "universe_domain": "googleapis.com"
+        "type": "service_account",
+        "project_id": "simple-bgg-stat-service-acc",
+        "private_key_id": st.secrets["private_key_id"],
+        "private_key": st.secrets["private_key"],
+        "client_email": st.secrets["client_email"],
+        "client_id": st.secrets["client_id"],
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/simple-bgg-stat-sa%40simple-bgg-stat-service-acc.iam.gserviceaccount.com",
+        "universe_domain": "googleapis.com"
     }
-    
     creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
     service = build('drive', 'v3', credentials=creds)
     return service
@@ -65,7 +63,7 @@ def gdrive_save_file(service: googleapiclient.discovery.Resource,
         'mimeType': 'text / csv'
     }
     buffer = io.BytesIO()
-    df.to_csv(buffer, sep=",", index=False, mode="wb", encoding="UTF-8")
+    df.to_csv(buffer, sep=",", index=False, encoding="UTF-8")
     buffer.seek(0)
     media_content = MediaIoBaseUpload(buffer, mimetype='text / csv')
     file = service.files().create(body=file_metadata, media_body=media_content, fields="id").execute()
@@ -75,7 +73,7 @@ def gdrive_save_file(service: googleapiclient.discovery.Resource,
 
 def gdrive_overwrite_file(service: googleapiclient.discovery.Resource, file_name: str, df: pd.DataFrame) -> None:
     buffer = io.BytesIO()
-    df.to_csv(buffer, sep=",", index=False, mode="wb", encoding="UTF-8")
+    df.to_csv(buffer, sep=",", index=False, encoding="UTF-8")
     buffer.seek(0)
     media_content = MediaIoBaseUpload(buffer, mimetype='text / csv')
     service.files().update(fileId=file_name, media_body=media_content).execute()
@@ -100,7 +98,6 @@ def gdrive_load_file(service, file_name: str) -> pd.DataFrame:
         done = False
         while done is False:
             status, done = downloader.next_chunk()
-            # print(f"Download {int(status.progress() * 100)}.")
     except HttpError as error:
         print(f"An error occurred: {error}")
         file = None
@@ -157,7 +154,6 @@ def import_current_ranking(_service: googleapiclient.discovery.Resource, path_pr
 
     items_source = gdrive_search(_service, "name contains 'boardgames_ranks.csv'")
     if not items_source:
-        print("No source file")
         source_last_modified = 0
         data_source = False
     else:
@@ -223,7 +219,6 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
 
     items = gdrive_search(_service, 'name contains "historical_ranking.csv"')
     if not items:
-        print('No processed historic ranking file found.')
         existing_imports = []
         # game DB is the start of the historical dataframe
         df_historical = game_list[["ID", "name", "yearpublished"]].set_index("ID")
@@ -240,7 +235,6 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     q = f'"{path_source}" in parents'
     items = gdrive_search(_service, query=q)
     if not items:
-        print('No historic ranking files found.')
         return df_historical
 
     for item in items:
@@ -307,6 +301,9 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
         previous_file_exists = True
         previous_file_id = items[0]["id"]
         df_game_info = gdrive_load_file(_service, previous_file_id)
+
+    if len(df) == 0:
+        return df_game_info
 
     unique_games = df.groupby("objectid").count().reset_index()
     unique = unique_games["objectid"].tolist()
@@ -438,7 +435,6 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
             st.caption(f'Importing finished. Number of games in collection: {len(df)}')
-            print(f'Collection is {how_fresh.days} days old.')
             return df
     else:
         processed_file = False
@@ -504,7 +500,6 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
             st.caption(f'Importing finished. Number of plays: {len(df)}')
-            print(f'Collection is {how_fresh.days} days old.')
             return df
     else:
         processed_file = False
@@ -516,7 +511,13 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
     Here we find this number so we know how many pages to read
     """
     i = result.find("total=")
-    page_no, rest = divmod(int("".join(filter(str.isdigit, result[i+7:i+12]))), 100)
+    total = int("".join(filter(str.isdigit, result[i+7:i+12])))
+    if total == 0:
+        if processed_file:
+            return df
+        else:
+            return pd.DataFrame()
+    page_no, rest = divmod(total, 100)
     if rest > 0:
         page_no += 1
 
@@ -745,7 +746,9 @@ def stat_by_weight(df_game_info: pd.DataFrame, df_plays: pd.DataFrame) -> None:
 # noinspection PyTypeChecker
 def main():
     # TODO schema for TOP list
-    # TODO boardgame vs extension + complexity
+    gdrive_original = st.secrets["gdrive_original"]
+    gdrive_processed = st.secrets["gdrive_processed"]
+    gdrive_user = st.secrets["gdrive_user"]
     download_in_days = 3  # for importing user data
     year_cut = 2000  # for stat_games_by_year function
 
@@ -753,9 +756,6 @@ def main():
         st.session_state.sidebar_state = 'expanded'
     st.set_page_config(initial_sidebar_state=st.session_state.sidebar_state)
 
-    gdrive_original = st.secrets["gdrive_original"]
-    gdrive_processed = st.secrets["gdrive_processed"]
-    gdrive_user = st.secrets["gdrive_user"]
     my_service = gdrive_authenticate()
 
     if "user_exist" not in st.session_state:
@@ -792,8 +792,8 @@ def main():
                 my_collection = import_user_collection(my_service, bgg_username, download_in_days)
                 my_plays = import_user_plays(my_service, bgg_username, download_in_days)
                 # global_: data independent from user
-                build_game_db(my_service, processed_path, my_collection)
-                global_game_info = build_game_db(my_service, processed_path, my_plays)
+                build_game_db(my_service, gdrive_processed, my_collection)
+                global_game_info = build_game_db(my_service, gdrive_processed, my_plays)
                 global_fresh_ranking = import_current_ranking(my_service, gdrive_processed)
                 global_historic_rankings = import_historic_ranking(my_service, gdrive_original, gdrive_processed,
                                                                    global_fresh_ranking)
@@ -801,28 +801,35 @@ def main():
             placeholder.empty()
 
     if st.session_state.user_exist:
-        st.title(f'Statistics of {bgg_username}')
-        option = st.selectbox('Choose a statistic',
-                              ('Basic statistics', 'Games tried grouped by year of publication',
-                               'H-index', 'Owned games not played yet', 'Play statistics by year',
-                               'Games known from BGG top list', 'Stat around game weight'),
-                              key='stat_selection')
-        match option:
-            case "Basic statistics":
-                stat_basics(my_collection, my_plays, global_game_info)
-            case "Owned games not played yet":
-                stat_not_played(my_collection)
-            case "Games tried grouped by year of publication":
-                stat_games_by_year(my_collection, year_cut)
-            case "H-index":
-                stat_h_index(my_collection, global_game_info)
-            case "Play statistics by year":
-                stat_yearly_plays(my_plays)
-            case "Games known from BGG top list":
-                stat_historic_ranking(global_historic_rankings, my_plays)
-            case "Stat around game weight":
-                stat_by_weight(global_game_info, my_plays)
+        if len(my_collection) > 0 and len(my_plays) > 0:
+            # user has enough information to present statistics
+            st.title(f'Statistics of {bgg_username}')
+            option = st.selectbox('Choose a statistic',
+                                  ('Basic statistics', 'Games tried grouped by year of publication',
+                                   'H-index', 'Owned games not played yet', 'Play statistics by year',
+                                   'Games known from BGG top list', 'Stat around game weight'),
+                                  key='stat_selection')
+            match option:
+                case "Basic statistics":
+                    stat_basics(my_collection, my_plays, global_game_info)
+                case "Owned games not played yet":
+                    stat_not_played(my_collection)
+                case "Games tried grouped by year of publication":
+                    stat_games_by_year(my_collection, year_cut)
+                case "H-index":
+                    stat_h_index(my_collection, global_game_info)
+                case "Play statistics by year":
+                    stat_yearly_plays(my_plays)
+                case "Games known from BGG top list":
+                    stat_historic_ranking(global_historic_rankings, my_plays)
+                case "Stat around game weight":
+                    stat_by_weight(global_game_info, my_plays)
+        else:
+            # user exists but no information
+            st.title("Statistics")
+            st.write("The selected user has not enough information to show statistics. Enter a user name first!")
     else:
+        # no valid user selected
         st.title("Statistics")
         st.write("Enter a user name first!")
 
