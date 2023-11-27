@@ -1,4 +1,5 @@
 streamlit
+lxml
 pandas
 plotly
 google-api-python-client
