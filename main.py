@@ -753,9 +753,9 @@ def main():
         st.session_state.sidebar_state = 'expanded'
     st.set_page_config(initial_sidebar_state=st.session_state.sidebar_state)
 
-    gdrive_original = secrets["gdrive_original"]
-    gdrive_processed = secrets["gdrive_processed"]
-    gdrive_user = secrets["gdrive_user"]
+    gdrive_original = st.secrets["gdrive_original"]
+    gdrive_processed = st.secrets["gdrive_processed"]
+    gdrive_user = st.secrets["gdrive_user"]
     my_service = gdrive_authenticate()
 
     if "user_exist" not in st.session_state:
