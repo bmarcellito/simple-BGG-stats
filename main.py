@@ -10,7 +10,7 @@ from datetime import datetime
 
 # WEB interface
 import streamlit as st
-import plotly.express as px
+import plotly as px
 
 # google drive
 import googleapiclient.discovery
