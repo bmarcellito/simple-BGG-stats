@@ -614,12 +614,19 @@ def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
             df_favourite_games = df_favourite_games.query('type == "boardgame"')
 
     df_favourite_games = df_favourite_games.sort_values(by=["user_rating", "numplays", "own"], ascending=False).head(15)
-    df_favourite_games = df_favourite_games[['name', 'user_rating', 'yearpublished', 'numplays',  'image']]
+    df_favourite_games = df_favourite_games[['name', 'user_rating', 'yearpublished', 'numplays',  'image', 'objectid']]
+
+    for i in range(len(df_favourite_games)):
+        df_favourite_games.iloc[i, 5] = (f'https://boardgamegeek.com/boardgame/'
+                                                 f'{df_favourite_games.iloc[i, 5]}')
+
     df_favourite_games.index = pd.RangeIndex(start=1, stop=len(df_favourite_games) + 1, step=1)
+    df_favourite_games.rename(columns={"objectid": "link"}, inplace=True)
     table_height = (len(df_favourite_games) + 1) * 35 + 3
 
     st.dataframe(df_favourite_games, use_container_width=True, height=table_height,
-                 column_config={"image": st.column_config.ImageColumn("Image", width="small")},)
+                 column_config={"image": st.column_config.ImageColumn("Image", width="small"),
+                 "link": st.column_config.LinkColumn("BGG link", width="small")})
 
 
 def stat_not_played(collection: pd.DataFrame) -> None:
@@ -765,6 +772,26 @@ def stat_by_weight(df_game_info: pd.DataFrame, df_plays: pd.DataFrame) -> None:
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
 
+def stat_by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
+    st.checkbox('Include boardgame expansions as well', key="h_index_rating")
+    df_rating = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+    df_rating = pd.DataFrame(df_rating.loc[df_rating["user_rating"] > 0])
+    if "h_index_rating" in st.session_state:
+        if not st.session_state.h_index_rating:
+            df_rating = df_rating.query('type == "boardgame"')
+
+    most_played = pd.DataFrame(df_plays.groupby("objectid")["quantity"].sum())
+    df_rating = df_rating.merge(most_played, how="left", on="objectid", suffixes=("", "_z"))
+
+    fig = px.scatter(
+        df_rating,
+        x="rating_average",
+        y="user_rating",
+        size="quantity", hover_data="name", height=600
+    )
+    st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+
+
 # noinspection PyTypeChecker
 def main():
     # TODO schema for TOP list
@@ -829,7 +856,7 @@ def main():
             option = st.selectbox('Choose a statistic',
                                   ('Basic statistics', 'Games tried grouped by year of publication',
                                    'H-index', 'Favourite games', 'Owned games not played yet', 'Play statistics by year',
-                                   'Games known from BGG top list', 'Stat around game weight'),
+                                   'Games known from BGG top list', 'Stat around game weight', 'Stat around ratings'),
                                   key='stat_selection')
             match option:
                 case "Basic statistics":
@@ -848,6 +875,8 @@ def main():
                     stat_historic_ranking(global_historic_rankings, my_plays)
                 case "Stat around game weight":
                     stat_by_weight(global_game_infodb, my_plays)
+                case "Stat around ratings":
+                    stat_by_rating(my_collection, my_plays, global_game_infodb)
         else:
             # user exists but no information
             st.title("Statistics")
