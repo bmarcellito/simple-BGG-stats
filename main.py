@@ -650,13 +650,15 @@ def stat_games_by_year(df_collection: pd.DataFrame, cut: int) -> None:
     played["yearpublished"] = played["yearpublished"].clip(lower=cut_year)
     played = played.groupby("yearpublished").count().reset_index()
     played.drop("index", inplace=True, axis=1)
+    df_new_games.rename(columns={"name": "Quantity"}, inplace=True)
+    df_new_games.rename(columns={"yearpublished": "Games published that year known"}, inplace=True)
     if under_cut > 0:
         played["yearpublished"] = played["yearpublished"].astype("str")
-        played.loc[0, "yearpublished"] = "Till " + str(cut_year)
+        played.loc[0, "yearpublished"] = "-" + str(cut_year)
 
-    st.dataframe(played)
-    st.line_chart(played, x="yearpublished", y="name", height=600)
-    st.dataframe(played, hide_index=True)
+    st.line_chart(played, x="yearpublished", y="Quantity", height=400)
+    # played.index = pd.RangeIndex(start=1, stop=len(played) + 1, step=1)
+    st.table(played)
 
 
 def stat_h_index(df_collection: pd.DataFrame, df_game_db: pd.DataFrame) -> None:
