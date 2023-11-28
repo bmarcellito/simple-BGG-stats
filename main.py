@@ -755,7 +755,7 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
 def stat_by_weight(df_game_info: pd.DataFrame, df_plays: pd.DataFrame) -> None:
     st.checkbox('Include boardgame expansions as well', key="weight_exp")
     most_played = pd.DataFrame(df_plays.groupby("objectid")["quantity"].sum())
-    most_played = most_played.sort_values("quantity", ascending=False).head(100)
+    most_played = most_played.sort_values("quantity", ascending=False)
     most_played = pd.merge(most_played, df_game_info, how="left", on="objectid")
     most_played["year_published"] = most_played["year_published"].clip(1990)
     most_played = (most_played[["objectid", "type", "name", "year_published", "weight", "quantity", "rating_average"]].
@@ -785,7 +785,7 @@ def stat_by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_
     df_rating = df_rating[["name", "numplays", "user_rating", "rating_average", "quantity"]]
     print(df_rating)
     # df_rating["quantity"] = df_rating["quantity"].fillna(value=0)
-    df_rating = df_rating.sort_values(by="numplays", ascending=False).head(100)
+    df_rating = df_rating.sort_values(by="numplays", ascending=False)
     print(df_rating)
 
     fig = px.scatter(
