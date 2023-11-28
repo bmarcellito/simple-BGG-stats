@@ -648,15 +648,19 @@ def stat_not_played(collection: pd.DataFrame) -> None:
 
 
 def stat_games_by_year(df_collection: pd.DataFrame, cut: int) -> None:
-    st.subheader("Games tried grouped by year of publication")
+    # st.subheader("Games tried grouped by year of publication")
+    cut_year = st.slider('Which year to start from?', 1950, 2020, 2000)
+
     played = df_collection[["name", "yearpublished"]].loc[df_collection["numplays"] != 0].reset_index()
-    under_cut = len(played.loc[df_collection["yearpublished"] <= cut])
-    played["yearpublished"] = played["yearpublished"].clip(lower=cut)
+    under_cut = len(played.loc[df_collection["yearpublished"] <= cut_year])
+    played["yearpublished"] = played["yearpublished"].clip(lower=cut_year)
     played = played.groupby("yearpublished").count().reset_index()
     played.drop("index", inplace=True, axis=1)
     if under_cut > 0:
         played["yearpublished"] = played["yearpublished"].astype("str")
-        played.loc[0, "yearpublished"] = "Till " + str(cut)
+        played.loc[0, "yearpublished"] = "Till " + str(cut_year)
+
+    st.line_chart(df, x="Date", height=600)
     st.dataframe(played, hide_index=True)
 
 
@@ -706,7 +710,6 @@ def stat_yearly_plays(df_play_stat: pd.DataFrame) -> None:
     df = pd.merge(df_new_games, df_played, how="left", on="year")
     df = pd.merge(df, df_all_plays, how="left", on="year").reset_index()
 
-    st.line_chart(df, x="Date", height=600)
     st.dataframe(df, hide_index=True)
     return None
 
