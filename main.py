@@ -858,7 +858,7 @@ def main():
     if st.session_state.user_exist:
         if len(my_collection) > 0 and len(my_plays) > 0:
             # user has enough information to present statistics
-            st.title(f'Statistics of {bgg_username}')
+            st.title(f'Updated Statistics of {bgg_username}')
             option = st.selectbox('Choose a statistic',
                                   ('Basic statistics', 'Games tried grouped by year of publication',
                                    'H-index', 'Favourite games', 'Owned games not played yet', 'Play statistics by year',
