@@ -236,14 +236,14 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     items = gdrive_search(_service, query=q)
     if not items:
         return df_historical
-
     for item in items:
         if re.match(r'\d{4}-\d{2}-\d{2}', item['name']):
-            if not (item["name"] in existing_imports):
+            name = item["name"]
+            name_len = len(name)
+            name = name[:name_len-4]
+            if not (name in existing_imports):
                 files_to_import.append(item)
-
     files_to_import.sort(key=sort_files)
-
     if not files_to_import:
         st.caption(f'Importing finished. Number of sampling: {len(existing_imports)}')
         return df_historical
