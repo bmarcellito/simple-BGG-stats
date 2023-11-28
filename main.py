@@ -705,6 +705,8 @@ def stat_yearly_plays(df_play_stat: pd.DataFrame) -> None:
 
     df = pd.merge(df_new_games, df_played, how="left", on="year")
     df = pd.merge(df, df_all_plays, how="left", on="year").reset_index()
+
+    st.line_chart(df, x="Date", height=600)
     st.dataframe(df, hide_index=True)
     return None
 
