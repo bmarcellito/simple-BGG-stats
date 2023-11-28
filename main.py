@@ -248,6 +248,8 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
         st.caption(f'Importing finished. Number of sampling: {len(existing_imports)}')
         return df_historical
 
+    # TODO new game appears in  a new historic file - what will happen?
+
     # each iteration loads a file, and adds the ranking information from it as a column to the historical dataframe
     progress_text = "Importing new historical game rankings file..."
     step_all = len(files_to_import)+1
@@ -708,8 +710,9 @@ def stat_yearly_plays(df_play_stat: pd.DataFrame) -> None:
 
 def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     # st.subheader("Games known from BGG top list")
-    method = st.selectbox("How to show data?", ('Basic (table format)', 'Basic (chart)',
-                                                'Cumulative (table format)', 'Cumulative (chart)'), key='TOP100')
+    method = st.selectbox("How to show data?", ('Basic', 'Cumulative'), key='TOP100')
+    st.selectbox("Show data from year...", ('2017', '2018', '2019', '2020'), key='sel_year')
+    st.selectbox("Data sampling", ('Yearly', 'Quarterly', 'Monthly'), key='sel_sampling')
 
     # create list of date we have ranking information
     periods = pd.DataFrame(historic.columns).tail(-5).iloc[:, 0].values.tolist()
@@ -718,6 +721,33 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     column_list = historic.columns.values
     for item in column_list:
         if re.match(r'\d{4}-\d{2}-\d{2}', item):
+                periods.append(item)
+
+    to_filter = periods
+    periods = []
+    if 'sel_year' not in st.session_state:
+        st.session_state.sel_year = '2017'
+    from_year = int(st.session_state.sel_year)
+    for item in to_filter:
+        this_item = int(item[:4])
+        if this_item >= from_year:
+            periods.append(item)
+
+    to_filter = periods
+    periods = []
+    if 'sel_sampling' not in st.session_state:
+        st.session_state.sel_sampling = 'Yearly'
+    for item in to_filter:
+        match st.session_state.sel_sampling:
+            case "Yearly":
+                this_item = item[-5:]
+                if this_item == "01-01":
+                    periods.append(item)
+            case 'Quarterly':
+                this_item = item[-5:]
+                if this_item in {"01-01", "04-01", "07-01", "10-01"}:
+                    periods.append(item)
+            case 'Monthly':
                 periods.append(item)
 
 
@@ -750,16 +780,14 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
         df_result_cum.loc[len(df_result_cum)] = [periods[i], top100, top200, top300, top400, top500, top1000, top2000]
     table_height = (len(df_result)+1) * 35 + 3
     match method:
-        case "Basic (table format)":
+        case "Basic":
+            st.line_chart(df_result, x="Date")
             st.write("Number of games played from the BGG TOP lists:")
             st.dataframe(df_result, hide_index=True, height=table_height)
-        case "Basic (chart)":
-            st.line_chart(df_result, x="Date")
-        case "Cumulative (table format)":
+        case "Cumulative":
+            st.line_chart(df_result_cum, x="Date")
             st.write("\nNumber of games played from the BGG TOP lists (cumulative):")
             st.dataframe(df_result_cum, hide_index=True, height=table_height)
-        case "Cumulative (chart)":
-            st.line_chart(df_result_cum, x="Date")
     return None
 
 
