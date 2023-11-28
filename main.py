@@ -185,7 +185,7 @@ def import_current_ranking(_service: googleapiclient.discovery.Resource, path_pr
     df = gdrive_load_file(_service, items_source[0]["id"])
     df = df[["id", "name", "yearpublished", "rank", "abstracts_rank", "cgs_rank", "childrensgames_rank",
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
-    df.rename(columns={"id": "ID"}, inplace=True)
+    df.rename(columns={"id": "objectid"}, inplace=True)
     if data_processed:
         gdrive_overwrite_file(_service, file_name=items_processed[0]["id"], df=df)
     else:
@@ -221,7 +221,7 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     if not items:
         existing_imports = []
         # game DB is the start of the historical dataframe
-        df_historical = game_list[["ID", "name", "yearpublished"]].set_index("ID")
+        df_historical = game_list[["objectid", "name", "yearpublished"]].set_index("objectid")
         previous_file_exists = False
     else:
         df_historical = gdrive_load_file(_service, items[0]["id"])
@@ -256,9 +256,11 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     for i in files_to_import:
         historical_loaded = gdrive_load_file(_service, i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
-        column_name = i["name"][:4]
+        column_name = i["name"]
+        st.caption(column_name)
         historical_loaded.rename(columns={"Rank": column_name}, inplace=True)
-        df_historical = df_historical.merge(historical_loaded, on="ID", how="outer")
+        historical_loaded.rename(columns={"ID": "objectid"}, inplace=True)
+        df_historical = df_historical.merge(historical_loaded, on="objectid", how="outer")
         step += 1
         my_bar.progress(step*100 // step_all, text=progress_text)
 
@@ -720,9 +722,9 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
                                           "top 400", "top 500", "top1000", "top2000"])
 
     for i in range(len(periods)):
-        ranking = historic[["ID", periods[i]]]
+        ranking = historic[["objectid", periods[i]]]
         df_known = df_plays[df_plays["date"] <= periods[i]]
-        df_known = pd.merge(df_known, ranking, how="left", left_on="objectid", right_on="ID")
+        df_known = pd.merge(df_known, ranking, how="left", on="objectid")
         top100 = len(df_known[df_known[periods[i]].between(1, 100)])
         top200 = len(df_known[df_known[periods[i]].between(101, 200)])
         top300 = len(df_known[df_known[periods[i]].between(201, 300)])
