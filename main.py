@@ -259,7 +259,6 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
         column_name = i["name"]
         name_len = len(column_name)
         column_name = column_name[:name_len-4]
-        st.caption(column_name)
         historical_loaded.rename(columns={"Rank": column_name}, inplace=True)
         historical_loaded.rename(columns={"ID": "objectid"}, inplace=True)
         df_historical = df_historical.merge(historical_loaded, on="objectid", how="outer")
@@ -714,6 +713,13 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
 
     # create list of date we have ranking information
     periods = pd.DataFrame(historic.columns).tail(-5).iloc[:, 0].values.tolist()
+
+    periods = []
+    column_list = historic.columns.values
+    for item in column_list:
+        if re.match(r'\d{4}-\d{2}-\d{2}', item):
+                periods.append(item)
+
 
     # create list of games with their first play dates
     df_plays = plays.groupby(["name", "objectid"])[["date"]].min()
