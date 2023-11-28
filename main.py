@@ -257,6 +257,8 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
         historical_loaded = gdrive_load_file(_service, i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
+        name_len = len(column_name)
+        column_name = column_name[:name_len-4]
         st.caption(column_name)
         historical_loaded.rename(columns={"Rank": column_name}, inplace=True)
         historical_loaded.rename(columns={"ID": "objectid"}, inplace=True)
