@@ -780,14 +780,19 @@ def stat_by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_
         if not st.session_state.h_index_rating:
             df_rating = df_rating.query('type == "boardgame"')
 
-    most_played = pd.DataFrame(df_plays.groupby("objectid")["quantity"].sum())
-    df_rating = df_rating.merge(most_played, how="left", on="objectid", suffixes=("", "_z"))
+    most_played = pd.DataFrame(df_plays.groupby("objectid").sum())
+    df_rating = df_rating.merge(most_played, how="left", left_on="objectid", right_on="index", suffixes=("", "_z"))
+    df_rating = df_rating[["name", "numplays", "user_rating", "rating_average", "quantity"]]
+    print(df_rating)
+    # df_rating["quantity"] = df_rating["quantity"].fillna(value=0)
+    df_rating = df_rating.sort_values(by="numplays", ascending=False).head(100)
+    print(df_rating)
 
     fig = px.scatter(
         df_rating,
         x="rating_average",
         y="user_rating",
-        size="quantity", hover_data="name", height=600
+        size="numplays", hover_data="name", height=600
     )
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
