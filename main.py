@@ -565,9 +565,9 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
     df_play = df_play.sort_values(by=["date"]).reset_index()
 
     if processed_file:
-        q = f'mimeType = "text / csv" and name contains "plays_{username}"'
-        items = gdrive_search(_service, query=q)
-        file_id = items[0]["id"]
+        # q = f'mimeType = "text / csv" and name contains "plays_{username}"'
+        # items = gdrive_search(_service, query=q)
+        # file_id = items[0]["id"]
         gdrive_overwrite_file(service=_service, file_name=file_id, df=df_play)
     else:
         q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
@@ -612,6 +612,7 @@ def stat_basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_inf
 
 
 def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
+    st.subheader("Favourite games")
     st.checkbox('Include boardgame expansions as well', key="h_index_favor")
     df_favourite_games = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     df_favourite_games = pd.DataFrame(df_favourite_games.loc[df_favourite_games["user_rating"] > 0])
