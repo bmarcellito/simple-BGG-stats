@@ -473,9 +473,9 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
     df = df.sort_values("yearpublished").reset_index()
 
     if processed_file:
-        q = f'mimeType = "text / csv" and name contains "collection_{username}"'
-        items = gdrive_search(_service, query=q)
-        file_id = items[0]["id"]
+        # q = f'mimeType = "text / csv" and name contains "collection_{username}"'
+        # items = gdrive_search(_service, query=q)
+        # file_id = items[0]["id"]
         gdrive_overwrite_file(service=_service, file_name=file_id, df=df)
     else:
         q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
@@ -899,13 +899,12 @@ def main():
             st.title(f'Updated Statistics of {bgg_username}')
             option = st.selectbox('Choose a statistic',
                                   ('Basic statistics', 'Games tried grouped by year of publication',
-                                   'H-index', 'Favourite games', 'Owned games not played yet', 'Play statistics by year',
+                                   'H-index', 'Owned games not played yet', 'Play statistics by year',
                                    'Games known from BGG top list', 'Stat around game weight', 'Stat around ratings'),
                                   key='stat_selection')
             match option:
                 case "Basic statistics":
                     stat_basics(my_collection, my_plays, global_game_infodb)
-                case "Favourite games":
                     stat_favourite_games(my_collection, global_game_infodb)
                 case "Owned games not played yet":
                     stat_not_played(my_collection)
