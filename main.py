@@ -294,6 +294,7 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
     return df_historical
 
+
 @st.cache_data
 def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: str,
                   df: pd.DataFrame) -> pd.DataFrame:
@@ -403,7 +404,7 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
     my_bar.empty()
 
     if previous_file_exists:
-        #gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
+        # gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
         gdrive_delete_file(_service, previous_file_id)
         gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
     else:
@@ -618,8 +619,7 @@ def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
     df_favourite_games = df_favourite_games[['name', 'user_rating', 'yearpublished', 'numplays',  'image', 'objectid']]
 
     for i in range(len(df_favourite_games)):
-        df_favourite_games.iloc[i, 5] = (f'https://boardgamegeek.com/boardgame/'
-                                                 f'{df_favourite_games.iloc[i, 5]}')
+        df_favourite_games.iloc[i, 5] = f'https://boardgamegeek.com/boardgame/{df_favourite_games.iloc[i, 5]}'
 
     df_favourite_games.index = pd.RangeIndex(start=1, stop=len(df_favourite_games) + 1, step=1)
     df_favourite_games.rename(columns={"objectid": "link"}, inplace=True)
@@ -627,7 +627,7 @@ def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
 
     st.dataframe(df_favourite_games, use_container_width=True, height=table_height,
                  column_config={"image": st.column_config.ImageColumn("Image", width="small"),
-                 "link": st.column_config.LinkColumn("BGG link", width="small")})
+                                "link": st.column_config.LinkColumn("BGG link", width="small")})
 
 
 def stat_not_played(collection: pd.DataFrame) -> None:
@@ -641,7 +641,7 @@ def stat_not_played(collection: pd.DataFrame) -> None:
         st.table(not_played)
 
 
-def stat_games_by_year(df_collection: pd.DataFrame, cut: int) -> None:
+def stat_games_by_year(df_collection: pd.DataFrame) -> None:
     # st.subheader("Games tried grouped by year of publication")
     cut_year = st.slider('Which year to start from?', 1950, 2020, 2000)
 
@@ -650,8 +650,8 @@ def stat_games_by_year(df_collection: pd.DataFrame, cut: int) -> None:
     played["yearpublished"] = played["yearpublished"].clip(lower=cut_year)
     played = played.groupby("yearpublished").count().reset_index()
     played.drop("index", inplace=True, axis=1)
-    df_new_games.rename(columns={"name": "Quantity"}, inplace=True)
-    df_new_games.rename(columns={"yearpublished": "Games published that year known"}, inplace=True)
+    played.rename(columns={"name": "Quantity"}, inplace=True)
+    played.rename(columns={"yearpublished": "Games published that year known"}, inplace=True)
     if under_cut > 0:
         played["yearpublished"] = played["yearpublished"].astype("str")
         played.loc[0, "yearpublished"] = "-" + str(cut_year)
@@ -718,13 +718,11 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     st.selectbox("Data sampling", ('Yearly', 'Quarterly', 'Monthly'), key='sel_sampling')
 
     # create list of date we have ranking information
-    periods = pd.DataFrame(historic.columns).tail(-5).iloc[:, 0].values.tolist()
-
     periods = []
     column_list = historic.columns.values
     for item in column_list:
         if re.match(r'\d{4}-\d{2}-\d{2}', item):
-                periods.append(item)
+            periods.append(item)
 
     to_filter = periods
     periods = []
@@ -752,7 +750,6 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
                     periods.append(item)
             case 'Monthly':
                 periods.append(item)
-
 
     # create list of games with their first play dates
     df_plays = plays.groupby(["name", "objectid"])[["date"]].min()
@@ -846,7 +843,6 @@ def main():
     gdrive_processed = st.secrets["gdrive_processed"]
     gdrive_user = st.secrets["gdrive_user"]
     download_in_days = 3  # for importing user data
-    year_cut = 2000  # for stat_games_by_year function
 
     if 'sidebar_state' not in st.session_state:
         st.session_state.sidebar_state = 'expanded'
@@ -912,7 +908,7 @@ def main():
                 case "Owned games not played yet":
                     stat_not_played(my_collection)
                 case "Games tried grouped by year of publication":
-                    stat_games_by_year(my_collection, year_cut)
+                    stat_games_by_year(my_collection)
                 case "H-index":
                     stat_h_index(my_collection, global_game_infodb)
                 case "Play statistics by year":
