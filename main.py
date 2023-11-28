@@ -463,7 +463,7 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
     # User ratings
     df_rating = pd.read_xml(StringIO(result), xpath=".//rating")
     df_rating = pd.DataFrame(df_rating["value"])
-    df_rating = df_rating.fillna(-1)
+    # df_rating = df_rating.fillna(-1)
     df_rating.rename(columns={"value": "user_rating"}, inplace=True)
     df = pd.concat([df, df_rating], axis=1).reset_index(drop=True)
 
@@ -607,7 +607,7 @@ def stat_basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_inf
 
 
 def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
-    st.subheader("Favourite games")
+    # st.subheader("Favourite games")
     st.checkbox('Include boardgame expansions as well', key="h_index_favor")
     df_favourite_games = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     df_favourite_games = pd.DataFrame(df_favourite_games.loc[df_favourite_games["user_rating"] > 0])
@@ -617,17 +617,68 @@ def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
 
     df_favourite_games = df_favourite_games.sort_values(by=["user_rating", "numplays", "own"], ascending=False).head(15)
     df_favourite_games = df_favourite_games[['name', 'user_rating', 'yearpublished', 'numplays',  'image', 'objectid']]
+    df_favourite_games["objectid"] = df_favourite_games["objectid"].astype("str")
+    df_favourite_games.rename(columns={"objectid": "link"}, inplace=True)
 
+    pos = df_favourite_games.columns.get_loc("link")
     for i in range(len(df_favourite_games)):
-        df_favourite_games.iloc[i, 5] = f'https://boardgamegeek.com/boardgame/{df_favourite_games.iloc[i, 5]}'
+        df_favourite_games.iloc[i, pos] = f'https://boardgamegeek.com/boardgame/{df_favourite_games.iloc[i, pos]}'
 
     df_favourite_games.index = pd.RangeIndex(start=1, stop=len(df_favourite_games) + 1, step=1)
-    df_favourite_games.rename(columns={"objectid": "link"}, inplace=True)
     table_height = (len(df_favourite_games) + 1) * 35 + 3
 
     st.dataframe(df_favourite_games, use_container_width=True, height=table_height,
                  column_config={"image": st.column_config.ImageColumn("Image", width="small"),
                                 "link": st.column_config.LinkColumn("BGG link", width="small")})
+
+
+def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
+    # st.subheader("Favourite designers")
+    st.selectbox("How to measure?", ("Favourite based on number of games known", "Favourite based on plays",
+                                     "Favourite based on user' ratings"), key='sel_designer')
+    st.checkbox('Include boardgame expansions as well', key="h_index_designer")
+    df_favourite_designer = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+    if "h_index_designer" in st.session_state:
+        if not st.session_state.h_index_designer:
+            df_favourite_designer = df_favourite_designer.query('type == "boardgame"')
+    df_favourite_designer = pd.DataFrame(df_favourite_designer[
+                                             ["designer", "name", "numplays", "user_rating", "weight"]].
+                                         sort_values("name").reset_index())
+
+    pos = df_favourite_designer.columns.get_loc("designer")
+    row_no = len(df_favourite_designer)
+    for index in range(row_no):
+        designers = str(df_favourite_designer.iloc[index, pos]).split(', ')
+        if len(designers) > 1:
+            first = designers.pop(0)
+            df_favourite_designer.at[index, "designer"] = first
+            extra_item = df_favourite_designer.iloc[[index]]
+            for one_designer in designers:
+                df_favourite_designer = pd.concat([df_favourite_designer, extra_item], ignore_index=True)
+                new_pos = len(df_favourite_designer)-1
+                df_favourite_designer.at[new_pos, "designer"] = one_designer
+    df_favourite_designer = (df_favourite_designer.groupby("designer").
+                             agg({"index": ["count"], "name": lambda x: ', '.join(set(x)),
+                                  "numplays": ["sum"], "user_rating": ["mean"], "weight": ["mean"]}))
+    df_favourite_designer = df_favourite_designer.reset_index()
+    df_favourite_designer.columns = ["Designer", "No of games",  "List of board games known from the designer",
+                                     "No of plays", "Average user rating", "Average weight"]
+
+    df_favourite_designer = df_favourite_designer.reset_index()
+    if 'sel_designer' not in st.session_state:
+        st.session_state.sel_designer = 'Favourite based on number of games known'
+    match st.session_state.sel_designer:
+        case 'Favourite based on number of games known':
+            df_favourite_designer = df_favourite_designer.sort_values("No of games", ascending=False)
+        case 'Favourite based on plays':
+            df_favourite_designer = df_favourite_designer.sort_values("No of plays", ascending=False)
+        case "Favourite based on user' ratings":
+            df_favourite_designer = df_favourite_designer.sort_values("Average user rating", ascending=False)
+
+    df_favourite_designer.drop("index", inplace=True, axis=1)
+    df_favourite_designer = pd.DataFrame(df_favourite_designer).head(50)
+    df_favourite_designer.index = pd.RangeIndex(start=1, stop=len(df_favourite_designer)+1, step=1)
+    st.table(df_favourite_designer)
 
 
 def stat_not_played(collection: pd.DataFrame) -> None:
@@ -650,13 +701,13 @@ def stat_games_by_year(df_collection: pd.DataFrame) -> None:
     played["yearpublished"] = played["yearpublished"].clip(lower=cut_year)
     played = played.groupby("yearpublished").count().reset_index()
     played.drop("index", inplace=True, axis=1)
-    played.rename(columns={"name": "Quantity"}, inplace=True)
-    played.rename(columns={"yearpublished": "Games published that year known"}, inplace=True)
     if under_cut > 0:
         played["yearpublished"] = played["yearpublished"].astype("str")
         played.loc[0, "yearpublished"] = "-" + str(cut_year)
+    played.rename(columns={"name": "Quantity"}, inplace=True)
+    played.rename(columns={"yearpublished": "Games published that year known"}, inplace=True)
 
-    st.line_chart(played, x="yearpublished", y="Quantity", height=400)
+    st.line_chart(played, x="Games published that year known", y="Quantity", height=400)
     # played.index = pd.RangeIndex(start=1, stop=len(played) + 1, step=1)
     st.table(played)
 
@@ -822,10 +873,8 @@ def stat_by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_
     most_played = pd.DataFrame(df_plays.groupby("objectid").sum())
     df_rating = df_rating.merge(most_played, how="left", left_on="objectid", right_on="index", suffixes=("", "_z"))
     df_rating = df_rating[["name", "numplays", "user_rating", "rating_average", "quantity"]]
-    print(df_rating)
-    # df_rating["quantity"] = df_rating["quantity"].fillna(value=0)
+
     df_rating = df_rating.sort_values(by="numplays", ascending=False)
-    print(df_rating)
 
     fig = px.scatter(
         df_rating,
@@ -895,18 +944,24 @@ def main():
     if st.session_state.user_exist:
         if len(my_collection) > 0 and len(my_plays) > 0:
             # user has enough information to present statistics
-            st.title(f'Updated Statistics of {bgg_username}')
+            st.title(f'Statistics of {bgg_username}')
             option = st.selectbox('Choose a statistic',
-                                  ('Basic statistics', 'Games tried grouped by year of publication',
-                                   'H-index', 'Owned games not played yet', 'Play statistics by year',
-                                   'Games known from BGG top list', 'Stat around game weight', 'Stat around ratings'),
-                                  key='stat_selection')
+                                  ('Basic statistics', 'Favourites',
+                                   'Games tried grouped by year of publication', 'H-index',
+                                   'Play statistics by year', 'Games known from BGG top list',
+                                   'Stat around game weight', 'Stat around ratings'), key='stat_selection')
             match option:
                 case "Basic statistics":
                     stat_basics(my_collection, my_plays, global_game_infodb)
-                    stat_favourite_games(my_collection, global_game_infodb)
-                case "Owned games not played yet":
-                    stat_not_played(my_collection)
+                    # stat_not_played(my_collection)
+                case "Favourites":
+                    opt_fav = st.selectbox('Choose a topic', ('Favourite games', 'Favourites Designers'),
+                                           key='stat_fav')
+                    match opt_fav:
+                        case 'Favourite games':
+                            stat_favourite_games(my_collection, global_game_infodb)
+                        case 'Favourites Designers':
+                            stat_favourite_designers(my_collection, global_game_infodb)
                 case "Games tried grouped by year of publication":
                     stat_games_by_year(my_collection)
                 case "H-index":
@@ -927,19 +982,7 @@ def main():
         # no valid user selected
         st.title("Statistics")
         st.write("Enter a user name first!")
-
-        if 'handler' not in st.session_state:
-            st.session_state.handler = 2
-        if st.session_state.handler == 2:
-            st.session_state.sidebar_state = "collapsed"
-            st.session_state.handler = 1
-            time.sleep(.1)
-            st.rerun()
-        if st.session_state.handler == 1:
-            st.session_state.sidebar_state = "expanded"
-            st.session_state.handler = 0
-            time.sleep(.1)
-            st.rerun()
+        st.write("Use the sidebar on the left! Click the tiny arrow in the top left corner to open it.")
 
 
 if __name__ == "__main__":
