@@ -654,7 +654,8 @@ def stat_games_by_year(df_collection: pd.DataFrame, cut: int) -> None:
         played["yearpublished"] = played["yearpublished"].astype("str")
         played.loc[0, "yearpublished"] = "Till " + str(cut_year)
 
-    st.line_chart(played, height=600)
+    st.dataframe(played)
+    st.line_chart(played, x="yearpublished", y="name", height=600)
     st.dataframe(played, hide_index=True)
 
 
