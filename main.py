@@ -256,7 +256,8 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     for i in files_to_import:
         historical_loaded = gdrive_load_file(_service, i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
-        historical_loaded.rename(columns={"Rank": i["name"]}, inplace=True)
+        column_name = i["name"][:4]
+        historical_loaded.rename(columns={"Rank": column_name}, inplace=True)
         df_historical = df_historical.merge(historical_loaded, on="ID", how="outer")
         step += 1
         my_bar.progress(step*100 // step_all, text=progress_text)
@@ -708,7 +709,7 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
                                                 'Cumulative (table format)', 'Cumulative (chart)'), key='TOP100')
 
     # create list of date we have ranking information
-    periods = pd.DataFrame(historic.columns).tail(-4).iloc[:, 0].values.tolist()
+    periods = pd.DataFrame(historic.columns).tail(-5).iloc[:, 0].values.tolist()
 
     # create list of games with their first play dates
     df_plays = plays.groupby(["name", "objectid"])[["date"]].min()
