@@ -711,7 +711,7 @@ def stat_yearly_plays(df_play_stat: pd.DataFrame) -> None:
 def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     # st.subheader("Games known from BGG top list")
     method = st.selectbox("How to show data?", ('Basic', 'Cumulative'), key='TOP100')
-    st.selectbox("Show data from year...", ('2017', '2018', '2019', '2020'), key='sel_year')
+    st.selectbox("Show data from year...", ('2017', '2018', '2019', '2020', '2021'), key='sel_year')
     st.selectbox("Data sampling", ('Yearly', 'Quarterly', 'Monthly'), key='sel_sampling')
 
     # create list of date we have ranking information
@@ -781,11 +781,11 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     table_height = (len(df_result)+1) * 35 + 3
     match method:
         case "Basic":
-            st.line_chart(df_result, x="Date")
+            st.line_chart(df_result, x="Date", height=600)
             st.write("Number of games played from the BGG TOP lists:")
             st.dataframe(df_result, hide_index=True, height=table_height)
         case "Cumulative":
-            st.line_chart(df_result_cum, x="Date")
+            st.line_chart(df_result_cum, x="Date", height=600)
             st.write("\nNumber of games played from the BGG TOP lists (cumulative):")
             st.dataframe(df_result_cum, hide_index=True, height=table_height)
     return None
