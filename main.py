@@ -473,9 +473,6 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
     df = df.sort_values("yearpublished").reset_index()
 
     if processed_file:
-        # q = f'mimeType = "text / csv" and name contains "collection_{username}"'
-        # items = gdrive_search(_service, query=q)
-        # file_id = items[0]["id"]
         gdrive_overwrite_file(service=_service, file_name=file_id, df=df)
     else:
         q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
@@ -565,9 +562,6 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
     df_play = df_play.sort_values(by=["date"]).reset_index()
 
     if processed_file:
-        # q = f'mimeType = "text / csv" and name contains "plays_{username}"'
-        # items = gdrive_search(_service, query=q)
-        # file_id = items[0]["id"]
         gdrive_overwrite_file(service=_service, file_name=file_id, df=df_play)
     else:
         q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
@@ -660,7 +654,7 @@ def stat_games_by_year(df_collection: pd.DataFrame, cut: int) -> None:
         played["yearpublished"] = played["yearpublished"].astype("str")
         played.loc[0, "yearpublished"] = "Till " + str(cut_year)
 
-    st.line_chart(played, x="Date", height=600)
+    st.line_chart(played, height=600)
     st.dataframe(played, hide_index=True)
 
 
