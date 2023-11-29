@@ -954,10 +954,7 @@ def stat_by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_
 def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df_playnum_infodb: pd.DataFrame) -> None:
     # st.subheader("Ideal number of players for each game you own")
     st.checkbox('Include boardgame expansions as well', key="h_index_playnum")
-    player_range = st.slider(
-        'Narrow on ideal player number',
-        1, 8, (1, 8), key='stat_playernum')
-    st.write('Values:', player_range[0], player_range[1])
+    player_range = st.slider('Narrow on ideal player number', 1, 8, (1, 8), key='stat_playernum')
 
     df_playnum = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     df_playnum = df_playnum.query('own == 1')
@@ -973,8 +970,8 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
     for index in range(row_no):
         feedback = [0, 0, 0, 0, 0, 0, 0, 0]
         game_id = df_playnum.at[index, "objectid"]
-        min_player = df_playnum.at[index, "min_player"]
-        max_player = min(df_playnum.at[index, "max_player"], 8)
+        min_player = int(df_playnum.at[index, "min_player"])
+        max_player = min(int(df_playnum.at[index, "max_player"]), 8)
         player_info = df_playnum_infodb.query(f'objectid == {game_id}').reset_index()
         inner_row_no = len(player_info)
         if inner_row_no == 0:
@@ -982,8 +979,9 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
             df_playnum.at[index, "own"] = feedback
             continue
         for j in range(inner_row_no):
-            if min_player <= player_info.at[j, "numplayers"] <= max_player:
-                feedback[player_info.at[j, "numplayers"]-1] = \
+            current_playernum = int(player_info.at[j, "numplayers"])
+            if min_player <= current_playernum <= max_player:
+                feedback[current_playernum-1] = \
                     (player_info.at[j, "best"]*3 + player_info.at[j, "recommended"]*1 +
                      player_info.at[j, "not recommended"]*0)
             else:
