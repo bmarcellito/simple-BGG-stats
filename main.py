@@ -661,6 +661,8 @@ def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.Dat
                                   "numplays": ["sum"], "user_rating": ["mean"], "weight": ["mean"]}))
 
     df_favourite_designer = df_favourite_designer.reset_index()
+    df_favourite_designer = pd.DataFrame(df_favourite_designer.loc[df_favourite_designer["designer"] != "(Uncredited)"])
+
     df_favourite_designer.columns = ["Designer", "No of games",  "List of board games known from the designer",
                                      "No of plays", "Average user rating", "Average weight"]
 
@@ -678,15 +680,13 @@ def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.Dat
     df_favourite_designer = df_favourite_designer.reset_index()
 
     row_no = len(df_favourite_designer)
-    print(row_no)
     for i in range(row_no):
-        print(i)
         games = df_favourite_designer.at[i, "List of board games known from the designer"]
         games = sorted(str(games).split(', '))
         games = ', '.join(map(str, games))
         df_favourite_designer.at[i, "List of board games known from the designer"] = games
 
-    df_favourite_designer.drop("index", inplace=True, axis=1)
+    df_favourite_designer.drop(["index", "level_0"], inplace=True, axis=1)
     df_favourite_designer.index = pd.RangeIndex(start=1, stop=len(df_favourite_designer)+1, step=1)
     st.table(df_favourite_designer)
 
