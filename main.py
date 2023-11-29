@@ -438,14 +438,19 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
 
 def import_player_number(df_playnumDB: pd.DataFrame, result: str, objectid: str) -> pd.DataFrame:
     df_playnum = pd.DataFrame(columns=["objectid", "numplayers", "best", "recommended", "not recommended"])
+
     root = ET.fromstring(result)
     root = root.find("item")
-    minplayers = root.find("minplayers").attrib["value"]
-    maxplayers = root.find("maxplayers").attrib["value"]
+    minplayers = int(root.find("minplayers").attrib["value"])
+    maxplayers = int(root.find("maxplayers").attrib["value"])
+    max_player_to_import = min(8, maxplayers)
     root = root.find("poll")
     for child in root:
-        numplayers = child.attrib["numplayers"]
-        if minplayers <= numplayers <= maxplayers:
+        try:
+            numplayers = int(child.attrib["numplayers"])
+        except ValueError:
+            continue
+        if minplayers <= numplayers <= max_player_to_import:
             best = 0
             recom = 0
             not_recom = 0
