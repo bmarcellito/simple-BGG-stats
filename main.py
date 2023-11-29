@@ -615,7 +615,7 @@ def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
         if not st.session_state.h_index_favor:
             df_favourite_games = df_favourite_games.query('type == "boardgame"')
 
-    df_favourite_games = df_favourite_games.sort_values(by=["user_rating", "numplays", "own"], ascending=False).head(15)
+    df_favourite_games = df_favourite_games.sort_values(by=["user_rating", "numplays", "own"], ascending=False).head(30)
     df_favourite_games = df_favourite_games[['name', 'user_rating', 'yearpublished', 'numplays',  'image', 'objectid']]
     df_favourite_games["objectid"] = df_favourite_games["objectid"].astype("str")
     df_favourite_games.rename(columns={"objectid": "link"}, inplace=True)
@@ -641,9 +641,8 @@ def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.Dat
     if "h_index_designer" in st.session_state:
         if not st.session_state.h_index_designer:
             df_favourite_designer = df_favourite_designer.query('type == "boardgame"')
-    df_favourite_designer = pd.DataFrame(df_favourite_designer[
-                                             ["designer", "name", "numplays", "user_rating", "weight"]].
-                                         sort_values("name").reset_index())
+    df_favourite_designer = pd.DataFrame(df_favourite_designer[["designer", "name", "numplays",
+                                                                "user_rating", "weight"]].reset_index())
 
     pos = df_favourite_designer.columns.get_loc("designer")
     row_no = len(df_favourite_designer)
@@ -657,9 +656,10 @@ def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.Dat
                 df_favourite_designer = pd.concat([df_favourite_designer, extra_item], ignore_index=True)
                 new_pos = len(df_favourite_designer)-1
                 df_favourite_designer.at[new_pos, "designer"] = one_designer
-    df_favourite_designer = (df_favourite_designer.groupby("designer").
+    df_favourite_designer = (df_favourite_designer.groupby("designer", sort=False).
                              agg({"index": ["count"], "name": lambda x: ', '.join(set(x)),
                                   "numplays": ["sum"], "user_rating": ["mean"], "weight": ["mean"]}))
+
     df_favourite_designer = df_favourite_designer.reset_index()
     df_favourite_designer.columns = ["Designer", "No of games",  "List of board games known from the designer",
                                      "No of plays", "Average user rating", "Average weight"]
@@ -669,14 +669,24 @@ def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.Dat
         st.session_state.sel_designer = 'Favourite based on number of games known'
     match st.session_state.sel_designer:
         case 'Favourite based on number of games known':
-            df_favourite_designer = df_favourite_designer.sort_values("No of games", ascending=False)
+            df_favourite_designer = df_favourite_designer.sort_values("No of games", ascending=False).head(30)
         case 'Favourite based on plays':
-            df_favourite_designer = df_favourite_designer.sort_values("No of plays", ascending=False)
+            df_favourite_designer = df_favourite_designer.sort_values("No of plays", ascending=False).head(30)
         case "Favourite based on user' ratings":
-            df_favourite_designer = df_favourite_designer.sort_values("Average user rating", ascending=False)
+            df_favourite_designer = df_favourite_designer.sort_values("Average user rating", ascending=False).head(30)
+
+    df_favourite_designer = df_favourite_designer.reset_index()
+
+    row_no = len(df_favourite_designer)
+    print(row_no)
+    for i in range(row_no):
+        print(i)
+        games = df_favourite_designer.at[i, "List of board games known from the designer"]
+        games = sorted(str(games).split(', '))
+        games = ', '.join(map(str, games))
+        df_favourite_designer.at[i, "List of board games known from the designer"] = games
 
     df_favourite_designer.drop("index", inplace=True, axis=1)
-    df_favourite_designer = pd.DataFrame(df_favourite_designer).head(50)
     df_favourite_designer.index = pd.RangeIndex(start=1, stop=len(df_favourite_designer)+1, step=1)
     st.table(df_favourite_designer)
 
