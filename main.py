@@ -974,23 +974,29 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
     row_no = len(df_playnum)
     for index in range(row_no):
         feedback = [0, 0, 0, 0, 0, 0, 0, 0]
-        game_id = df_playnum.at[index, "objectid"]
+        object_id = int(df_playnum.at[index, "objectid"])
         min_player = int(df_playnum.at[index, "min_player"])
         max_player = min(int(df_playnum.at[index, "max_player"]), 8)
-        player_info = df_playnum_infodb.query(f'objectid == {game_id}').reset_index()
+        player_info = df_playnum_infodb.query(f'objectid == {object_id}').reset_index()
         inner_row_no = len(player_info)
         if inner_row_no == 0:
             df_playnum.at[index, "objectid"] = 0
             df_playnum.at[index, "own"] = feedback
             continue
+        votes = 0
         for j in range(inner_row_no):
             current_playernum = int(player_info.at[j, "numplayers"])
             if min_player <= current_playernum <= max_player:
-                feedback[current_playernum-1] = \
-                    (player_info.at[j, "best"]*3 + player_info.at[j, "recommended"]*1 +
-                     player_info.at[j, "not recommended"]*0)
+                best = player_info.at[j, "best"]
+                rec = player_info.at[j, "recommended"]*1
+                not_rec = player_info.at[j, "not recommended"]
+                feedback[current_playernum-1] = best*3 + rec
             else:
                 continue
+        votes = sum(feedback)
+        if votes > 0:
+            for k in range(8):
+                feedback[k] = (feedback[k] * 100) // votes
         df_playnum.at[index, "objectid"] = feedback.index(max(feedback))+1
         df_playnum.at[index, "own"] = feedback
 
@@ -1004,10 +1010,8 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
     table_height = min(20, len(df_playnum)) * 35 + 3
     st.dataframe(df_playnum, column_config={
         "Player no stat": st.column_config.BarChartColumn(
-            help="BGG users\' feedback on how good are specific player numbers (1-8 players shown)",
-            y_min=0,
-            y_max=100,
-        ), "image": st.column_config.ImageColumn("Image", width="small")
+            help="BGG users\' feedback on specific player numbers (1-8 players shown)", y_min=0,y_max=100),
+        "image": st.column_config.ImageColumn("Image", width="small")
     }, hide_index=True, height=table_height, use_container_width=True)
 
 
