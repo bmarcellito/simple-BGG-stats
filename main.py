@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 
 # reading historical scraped files
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # WEB interface
 import streamlit as st
@@ -849,23 +849,84 @@ def stat_games_by_year(df_collection: pd.DataFrame) -> None:
     st.table(played)
 
 
-def stat_h_index(df_collection: pd.DataFrame, df_game_db: pd.DataFrame) -> None:
+def stat_h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
+    def count_h(df: pd.DataFrame) -> (pd.DataFrame, int):
+        if df.empty:
+            return df, 0
+        df = df.groupby("Name", sort=False).sum().reset_index()
+        df = df.sort_values(by=["Number of plays", "Name"], ascending=[False, True]).reset_index()
+        i = 0
+        while 0 == 0:
+            try:
+                if df.iloc[i]["Number of plays"] < i + 1:
+                    break
+            except IndexError:
+                break
+            i += 1
+
+        df_result = pd.DataFrame(df[["Name", "Number of plays"]].loc[df["Number of plays"] >= i])
+        if len(df_result) > i:
+            newline = "\n"
+            extra_text = "Also in the H-index range are: "
+            for index in range(i, len(df_result)):
+                extra_text = f'{extra_text}{df_result.at[index, "Name"]} ({df_result.at[index, "Number of plays"]} plays), '
+            extra_text = extra_text[:-2]
+            df_result.at[i, "Name"] = extra_text
+            df_result["Number of plays"] = df_result["Number of plays"].astype(str)
+            df_result.at[i, "Number of plays"] = f'At least {i}'
+            cut = i+1
+        else:
+            cut = i
+        df_result.index = pd.RangeIndex(start=1, stop=len(df_result) + 1, step=1)
+        return df_result.head(cut), i
+
     # st.subheader("H-index")
+    st.selectbox("Show data from period...", ('All times', 'Last year (starting from today)', 'For each calendar year'), key='sel_hindex')
     st.checkbox('Include boardgame expansions as well', key="h_index_exp")
-    df_collection = pd.merge(df_collection, df_game_db, how="left", on="objectid", suffixes=("", "_y"))
-    df_collection = df_collection.sort_values(by="numplays", ascending=False).reset_index()
+    df = pd.merge(df_plays, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     if "h_index_exp" in st.session_state:
         if not st.session_state.h_index_exp:
-            df_collection = df_collection.query('type == "boardgame"')
-    i = 0
-    while 0 == 0:
-        if df_collection.iloc[i]["numplays"] < i+1:
-            break
-        i += 1
-    df_result = pd.DataFrame(df_collection[["name", "numplays"]].loc[df_collection["numplays"] >= i])
-    df_result.index = pd.RangeIndex(start=1, stop=len(df_result)+1, step=1)
-    st.write(f'H-index is {i}. Games within the H-index:')
-    st.table(df_result.head(i))
+            df = df.query('type == "boardgame"')
+    df = df[["name", "quantity", "date"]]
+    df.rename(columns={"name": "Name", "quantity": "Number of plays", "date": "Date"}, inplace=True)
+    df = df.reset_index()
+
+    if 'sel_hindex' not in st.session_state:
+        st.session_state.sel_hindex = 'All times'
+    match st.session_state.sel_hindex:
+        case 'All times':
+            df_result, i = count_h(df)
+            st.write(f'H-index is {i}. Games within the H-index:')
+            st.table(df_result)
+        case 'Last year (starting from today)':
+            no_row = len(df)
+            one_years_ago = datetime.today() - timedelta(days=365)
+            for index in range(no_row):
+                play_date = datetime.strptime(df.at[index, "Date"], "%Y-%m-%d")
+                if play_date > one_years_ago:
+                    df.at[index, "Date"] = 1
+                else:
+                    df.at[index, "Date"] = 0
+            df = df.query(f'Date == 1')
+            df_result, i = count_h(df)
+            st.write(f'H-index is {i}. Games within the H-index:')
+            st.table(df_result)
+        case 'For each calendar year':
+            df["Date"] = df["Date"].str[0:4].astype(int)
+            df = df.sort_values("Date").reset_index(drop=True)
+            plays_years = df["Date"].unique().tolist()
+            no_row = len(plays_years)
+            for index in range(no_row):
+                df_yearly = df.query(f'Date == {plays_years[index]}')
+                df_result, i = count_h(df_yearly)
+                with st.expander(f'For year {plays_years[index]} the H-index is {i}.'):
+                    st.table(df_result)
+
+    with st.expander("See explanation of data"):
+        st.write("Your h-index is the smallest number of games that you have played at least that number of times.")
+        st.write("Data used:")
+        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
+        st.markdown("- board game type to separate board games and extensions (xmlapi2/thing)")
     return None
 
 
@@ -875,27 +936,40 @@ def stat_yearly_plays(df_play_stat: pd.DataFrame) -> None:
     df_new_games = df_play_stat.groupby(["name", "objectid"])[["date"]].min()
     df_new_games["year"] = df_new_games["date"].str[0:4].astype(int)
     df_new_games = df_new_games.groupby("year").count()
-    df_new_games.rename(columns={"date": "new_games_tried"}, inplace=True)
+    df_new_games.rename(columns={"date": "New games tried"}, inplace=True)
 
     # number of unique games known already at that time
-    df_new_games["known_games"] = df_new_games["new_games_tried"].cumsum()
+    df_new_games["known_games"] = df_new_games["New games tried"].cumsum()
+    df_new_games.rename(columns={"known_games": "Known games"}, inplace=True)
 
     # number of unique games played in every year
     df_played = df_play_stat
     df_played["year"] = df_played["date"].str[0:4].astype(int)
     df_played = pd.Series(df_played.groupby("year")["objectid"].nunique())
-    df_played.rename("unique_games_played", inplace=True)
+    df_played.rename("Unique games played", inplace=True)
 
     # number of all plays in every year
     df_all_plays = df_play_stat
     df_all_plays["year"] = df_all_plays["date"].str[0:4].astype(int)
     df_all_plays = df_all_plays.groupby("year")["quantity"].sum()
-    df_all_plays.rename("no_plays", inplace=True)
+    df_all_plays.rename("Number of plays", inplace=True)
 
     df = pd.merge(df_new_games, df_played, how="left", on="year")
     df = pd.merge(df, df_all_plays, how="left", on="year").reset_index()
 
-    st.dataframe(df, hide_index=True)
+    table_height = (len(df)+1) * 35 + 3
+    st.dataframe(df, hide_index=True, height=table_height, use_container_width=True)
+    with st.expander("See explanation of data"):
+        st.write("Summary of play statistics grouped by year.")
+        st.write("Data used:")
+        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
+        st.write("Description of columns:")
+        st.markdown("- New games tried: the number of unique games where the first documented play happened that year")
+        st.markdown("- Known games: the number of unique games where the first documented play happened UNTIL that year (including that year as well)")
+        st.markdown("- Unique games played: the number of unique games where there is at least one documented play happened that year")
+        st.markdown("- Number of plays: the number of plays documented play happened that year")
+        st.write("Note: BGG let you add quantity to a recorded play (like you played that game 3 times in a row, and you create one play for all of this. This statistics would count this 3 plays.")
+
     return None
 
 
@@ -1170,7 +1244,7 @@ def main():
                 case "Games tried grouped by year of publication":
                     stat_games_by_year(my_collection)
                 case "H-index":
-                    stat_h_index(my_collection, global_game_infodb)
+                    stat_h_index(my_plays, global_game_infodb)
                 case "Play statistics by year":
                     stat_yearly_plays(my_plays)
                 case "Games known from BGG top list":
