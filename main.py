@@ -709,6 +709,9 @@ def stat_basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_inf
     collection_merged = pd.merge(df_collection, df_game_info, how="left", on="objectid")
     plays_merged = pd.merge(df_plays, df_game_info, how="left", on="objectid")
 
+    collection_all = len(collection_merged)
+    collection_games = len(collection_merged.query('type == "boardgame"'))
+    collection_exp = len(collection_merged.query('type == "boardgameexpansion"'))
     owned_all = df_collection["own"].loc[df_collection["own"] == 1].count()
     owned_games = len(collection_merged.query('(type == "boardgame") and (own == 1)'))
     owned_exp = len(collection_merged.query('(type == "boardgameexpansion") and (own == 1)'))
@@ -717,20 +720,30 @@ def stat_basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_inf
     tried_games = tried_games["objectid"].nunique()
     tried_exp = plays_merged.query('type == "boardgameexpansion"')
     tried_exp = tried_exp["objectid"].nunique()
+    rated_all = len(collection_merged.query('user_rating > 0'))
+    rated_games = len(collection_merged.query('(type == "boardgame") and (user_rating > 0)'))
+    rated_exp = len(collection_merged.query('(type == "boardgameexpansion") and (user_rating > 0)'))
     more_all = df_collection["numplays"].loc[df_collection["numplays"] > 1].count()
     more_games = len(collection_merged.query('(type == "boardgame") and (numplays > 1)'))
     more_exp = len(collection_merged.query('(type == "boardgameexpansion") and (numplays > 1)'))
-    data = {"Name": ["Number of games owned", "Number of unique games tried", "Games played more than once"],
-            "Games": [owned_games, tried_games, more_games],
-            "Expansions": [owned_exp, tried_exp, more_exp],
-            "All": [owned_all, tried_all, more_all]}
-    df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=4, step=1))
-    st.write(df_basic)
+    data = {"Name": ["Size of BGG collection", "Number of items owned", "Number of unique items tried",
+                     "Number of items rated by the user", "Played more than once"],
+            "Games": [collection_games, owned_games, tried_games, rated_games, more_games],
+            "Expansions": [collection_exp, owned_exp, tried_exp, rated_exp, more_exp],
+            "All": [collection_all, owned_all, tried_all, rated_all, more_all]}
+    df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=6, step=1))
+    st.dataframe(df_basic, use_container_width=True)
 
     st.write(f'First play recorded on: {df_plays.date.min()}')
     st.write(f'Number of plays recorded: {df_collection["numplays"].sum()}')
     st.write(f'Mean of plays with a specific game: {df_collection["numplays"].mean():.2f}')
     st.write(f'Median of plays with a specific game: {df_collection["numplays"].median()}')
+
+    with st.expander("See explanation of data"):
+        st.write("Data used:")
+        st.markdown("- user's collection plays for size of collection, ownership of items, ratings by the user  (xmlapi2/collection)")
+        st.markdown("- user's documented plays for items tried, and other play related statistics (xmlapi2/plays)")
+        st.markdown("- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)")
 
 
 def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
@@ -926,7 +939,7 @@ def stat_h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
         st.write("Your h-index is the smallest number of games that you have played at least that number of times.")
         st.write("Data used:")
         st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
-        st.markdown("- board game type to separate board games and extensions (xmlapi2/thing)")
+        st.markdown("- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)")
     return None
 
 
@@ -1224,7 +1237,7 @@ def main():
             st.title(f'Statistics of {bgg_username}')
             option = st.selectbox('Choose a statistic',
                                   ('Basic statistics', 'User\'s collection', 'Favourites',
-                                   'Games tried grouped by year of publication', 'H-index',
+                                   'H-index', 'Games tried grouped by year of publication',
                                    'Play statistics by year', 'Games known from BGG top list',
                                    'Stat around game weight', 'Stat around ratings'), key='stat_selection')
             match option:
@@ -1241,10 +1254,10 @@ def main():
                             stat_favourite_games(my_collection, global_game_infodb)
                         case 'Favourites Designers':
                             stat_favourite_designers(my_collection, global_game_infodb)
-                case "Games tried grouped by year of publication":
-                    stat_games_by_year(my_collection)
                 case "H-index":
                     stat_h_index(my_plays, global_game_infodb)
+                case "Games tried grouped by year of publication":
+                    stat_games_by_year(my_collection)
                 case "Play statistics by year":
                     stat_yearly_plays(my_plays)
                 case "Games known from BGG top list":
