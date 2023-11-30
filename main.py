@@ -72,13 +72,52 @@ def gdrive_save_file(service: googleapiclient.discovery.Resource,
     return file_id
 
 
-def gdrive_overwrite_file(service: googleapiclient.discovery.Resource, file_name: str, df: pd.DataFrame) -> None:
-    buffer = io.BytesIO()
-    df.to_csv(buffer, sep=",", index=False, encoding="UTF-8")
-    buffer.seek(0)
-    media_content = MediaIoBaseUpload(buffer, mimetype='text / csv')
-    service.files().update(fileId=file_name, media_body=media_content).execute()
-    return None
+# noinspection PyTypeChecker
+def gdrive_complex_save_file(service: googleapiclient.discovery.Resource,
+                             parent_folder: str, filename: str, df: pd.DataFrame) -> str:
+    def create_token() -> str:
+        # create token
+        token = str(datetime.now())
+        df_session = pd.DataFrame(["test"])
+        q = f'mimeType = "application/vnd.google-apps.folder" and name contains "session_id"'
+        items = gdrive_search(service, q)
+        session_folder_id = items[0]["id"]
+        token_id = gdrive_save_file(service, parent_folder=session_folder_id, file_name=token, df=df_session)
+
+        # waits until this is the first token (no other token is created earlier)
+        while 0 == 0:
+            items = gdrive_search(service, query=f'"{session_folder_id}" in parents')
+            if not items:
+                continue
+            first_token_id = items[0]["id"]
+            first_token_time = items[0]["modifiedTime"]
+            for item in items:
+                if first_token_time > item["modifiedTime"]:
+                    first_token_id = item["id"]
+                    first_token_time = item["modifiedTime"]
+            if first_token_id == token_id:
+                break
+        # ready to go
+        return token_id
+
+    def delete_token(token: str) -> None:
+        gdrive_delete_file(service, token)
+
+    items = gdrive_search(service, f'name contains "{filename}"')
+    if not items:
+        # create new file
+        file_id = gdrive_save_file(service, parent_folder, filename, df)
+    else:
+        # overwrite existing file
+        existing_file_id = items[0]["id"]
+        my_token = create_token()
+        df_existing = gdrive_load_file(service, items[0]["id"])
+        df_new = pd.concat([df_existing, df], ignore_index=True)
+        df_new = df_new.drop_duplicates()
+        gdrive_delete_file(service, existing_file_id)
+        file_id = gdrive_save_file(service, parent_folder, filename, df_new)
+        delete_token(my_token)
+    return file_id
 
 
 def gdrive_delete_file(service: googleapiclient.discovery.Resource, file_id: str) -> None:
@@ -87,7 +126,7 @@ def gdrive_delete_file(service: googleapiclient.discovery.Resource, file_id: str
 
 
 def gdrive_search(service: googleapiclient.discovery.Resource, query: str):
-    results = service.files().list(q=query, fields='files(id, name, modifiedTime)').execute()
+    results = service.files().list(q=query, fields="files(id, name, modifiedTime)").execute()
     return results.get('files', [])
 
 
@@ -152,8 +191,10 @@ def import_current_ranking(_service: googleapiclient.discovery.Resource, path_pr
     :return: imported data in dataframe
     """
     st.caption("Importing list of board games...")
+    filename_source = "boardgames_ranks.csv"
+    filename_processed = "current_ranking.csv"
 
-    items_source = gdrive_search(_service, "name contains 'boardgames_ranks.csv'")
+    items_source = gdrive_search(_service, f'name contains "{filename_source}"')
     if not items_source:
         source_last_modified = 0
         data_source = False
@@ -161,7 +202,7 @@ def import_current_ranking(_service: googleapiclient.discovery.Resource, path_pr
         source_last_modified = items_source[0]["modifiedTime"]
         data_source = True
 
-    items_processed = gdrive_search(_service, "name contains 'current_ranking.csv'")
+    items_processed = gdrive_search(_service, f'name contains "{filename_processed}"')
     if not items_processed:
         data_processed = False
         process_last_modified = 0
@@ -187,10 +228,13 @@ def import_current_ranking(_service: googleapiclient.discovery.Resource, path_pr
     df = df[["id", "name", "yearpublished", "rank", "abstracts_rank", "cgs_rank", "childrensgames_rank",
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
     df.rename(columns={"id": "objectid"}, inplace=True)
-    if data_processed:
-        gdrive_overwrite_file(_service, file_name=items_processed[0]["id"], df=df)
-    else:
-        gdrive_save_file(_service, parent_folder=path_processed, file_name="current_ranking.csv", df=df)
+
+    gdrive_complex_save_file(_service, path_processed, filename_processed, df)
+    # UPDATED
+    # if data_processed:
+    #     gdrive_overwrite_file(_service, file_name=items_processed[0]["id"], df=df)
+    # else:
+    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="current_ranking.csv", df=df)
     st.caption(f'Importing finished. Number of games: {len(df)}')
     return df
 
@@ -218,8 +262,9 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
 
     st.caption("Importing historical game rankings")
     previous_file_id = ""
+    filename = "historical_ranking.csv"
 
-    items = gdrive_search(_service, 'name contains "historical_ranking.csv"')
+    items = gdrive_search(_service, f'name contains "{filename}"')
     if not items:
         existing_imports = []
         # game DB is the start of the historical dataframe
@@ -234,8 +279,7 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
 
     # identifying the historical data files
     files_to_import = []
-    q = f'"{path_source}" in parents'
-    items = gdrive_search(_service, query=q)
+    items = gdrive_search(_service, query=f'"{path_source}" in parents')
     if not items:
         return df_historical
     for item in items:
@@ -287,16 +331,19 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
 
     # TODO: games with multiple ID issue
 
-    if previous_file_exists:
-        gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_historical)
-    else:
-        gdrive_save_file(_service, parent_folder=path_processed, file_name="historical_ranking.csv", df=df_historical)
+    gdrive_complex_save_file(_service, path_processed, filename, df_historical)
+    # UPDATED
+    # if previous_file_exists:
+    #     gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_historical)
+    # else:
+    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="historical_ranking.csv", df=df_historical)
 
     my_bar.empty()
     st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
     return df_historical
 
 
+# noinspection PyTypeChecker
 @st.cache_data
 def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: str,
                   df: pd.DataFrame):
@@ -307,8 +354,10 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
 
     previous_game_file_id = ""
     previous_play_file_id = ""
+    filename_game = "game_infoDB.csv"
+    filename_playnum = "playnum_infoDB.csv"
 
-    items = gdrive_search(_service, "name contains 'game_infoDB.csv'")
+    items = gdrive_search(_service, f'name contains "{filename_game}"')
     if not items:
         previous_game_file_exists = False
         df_game_info = pd.DataFrame()
@@ -317,7 +366,7 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
         previous_game_file_id = items[0]["id"]
         df_game_info = gdrive_load_file(_service, previous_game_file_id)
 
-    items = gdrive_search(_service, "name contains 'playnum_infoDB.csv'")
+    items = gdrive_search(_service, f'name contains "{filename_playnum}"')
     if not items:
         previous_play_file_exists = False
         df_playnumdb = pd.DataFrame()
@@ -418,25 +467,29 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
         my_bar.progress(step*100 // step_all, text=progress_text)
     my_bar.empty()
 
-    if previous_game_file_exists:
-        # gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
-        gdrive_delete_file(_service, previous_game_file_id)
-        gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
-    else:
-        gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
 
-    if previous_play_file_exists:
-        # gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
-        gdrive_delete_file(_service, previous_play_file_id)
-        gdrive_save_file(_service, parent_folder=path_processed, file_name="playnum_infoDB.csv", df=df_playnumdb)
-    else:
-        gdrive_save_file(_service, parent_folder=path_processed, file_name="playnum_infoDB.csv", df=df_playnumdb)
+    gdrive_complex_save_file(_service, path_processed, filename_game, df_game_info)
+    gdrive_complex_save_file(_service, path_processed, filename_playnum, df_playnumdb)
+    # UPDATED
+    # if previous_game_file_exists:
+    #     # gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
+    #     gdrive_delete_file(_service, previous_game_file_id)
+    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
+    # else:
+    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
+    #
+    # if previous_play_file_exists:
+    #     # gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
+    #     gdrive_delete_file(_service, previous_play_file_id)
+    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="playnum_infoDB.csv", df=df_playnumdb)
+    # else:
+    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="playnum_infoDB.csv", df=df_playnumdb)
 
     st.caption(f'Importing finished. {len(games_to_dl)} new game information saved.')
     return df_game_info, df_playnumdb
 
 
-def import_player_number(df_playnumDB: pd.DataFrame, result: str, objectid: str) -> pd.DataFrame:
+def import_player_number(df_playnumdb: pd.DataFrame, result: str, objectid: str) -> pd.DataFrame:
     df_playnum = pd.DataFrame(columns=["objectid", "numplayers", "best", "recommended", "not recommended"])
 
     root = ET.fromstring(result)
@@ -471,10 +524,11 @@ def import_player_number(df_playnumDB: pd.DataFrame, result: str, objectid: str)
             }
             new_row = pd.DataFrame(data)
             df_playnum = pd.concat([df_playnum, new_row], ignore_index=True)
-    df_playnum = pd.concat([df_playnumDB, df_playnum], ignore_index=True)
+    df_playnum = pd.concat([df_playnumdb, df_playnum], ignore_index=True)
     return df_playnum
 
 
+# noinspection PyTypeChecker
 @st.cache_data
 def import_user_collection(_service: googleapiclient.discovery.Resource, username: str,
                            refresh: int) -> pd.DataFrame:
@@ -497,9 +551,9 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
     """
     st.caption(f'Importing collection of {username}...')
     file_id = ""
+    filename= f'collection_{username}.csv'
 
-    q = f'name contains "collection_{username}"'
-    item = gdrive_search(_service, query=q)
+    item = gdrive_search(_service, query=f'name contains "{filename}"')
     if item:
         processed_file = True
         file_id = item[0]["id"]
@@ -535,18 +589,25 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
 
     df = df.sort_values("yearpublished").reset_index()
 
-    if processed_file:
-        gdrive_overwrite_file(service=_service, file_name=file_id, df=df)
-    else:
-        q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
-        items = gdrive_search(_service, query=q)
-        folder_id = items[0]["id"]
-        file_name = f'collection_{username}.csv'
-        gdrive_save_file(service=_service, parent_folder=folder_id, file_name=file_name, df=df)
+    q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
+    items = gdrive_search(_service, query=q)
+    folder_id = items[0]["id"]
+    gdrive_complex_save_file(_service, folder_id, filename, df)
+    # UPDATED
+    # if processed_file:
+    #     gdrive_overwrite_file(service=_service, file_name=file_id, df=df)
+    # else:
+    #     q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
+    #     items = gdrive_search(_service, query=q)
+    #     folder_id = items[0]["id"]
+    #     file_name = f'collection_{username}.csv'
+    #     gdrive_save_file(service=_service, parent_folder=folder_id, file_name=file_name, df=df)
+
     st.caption(f'Collection imported. Number of games + expansions known: {len(df)}')
     return df
 
 
+# noinspection PyTypeChecker
 @st.cache_data
 def import_user_plays(_service: googleapiclient.discovery.Resource, username: str,
                       refresh: int) -> pd.DataFrame:
@@ -561,9 +622,9 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
     st.caption(f'Importing plays of {username}...')
     df = pd.DataFrame()
     file_id = ""
+    filename = f'plays_{username}.csv'
 
-    q = f'name contains "plays_{username}"'
-    item = gdrive_search(_service, query=q)
+    item = gdrive_search(_service, query=f'name contains "{filename}"')
     if item:
         processed_file = True
         file_id = item[0]["id"]
@@ -623,14 +684,19 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
         df_play = df_play.drop(["players"], axis=1)
     df_play = df_play.sort_values(by=["date"]).reset_index()
 
-    if processed_file:
-        gdrive_overwrite_file(service=_service, file_name=file_id, df=df_play)
-    else:
-        q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
-        items = gdrive_search(_service, query=q)
-        folder_id = items[0]["id"]
-        file_name = f'plays_{username}.csv'
-        gdrive_save_file(service=_service, parent_folder=folder_id, file_name=file_name, df=df_play)
+    q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
+    items = gdrive_search(_service, query=q)
+    folder_id = items[0]["id"]
+    gdrive_complex_save_file(_service, folder_id, filename, df_play)
+    # UPDATED
+    # if processed_file:
+    #     gdrive_overwrite_file(service=_service, file_name=file_id, df=df_play)
+    # else:
+    #     q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
+    #     items = gdrive_search(_service, query=q)
+    #     folder_id = items[0]["id"]
+    #     file_name = f'plays_{username}.csv'
+    #     gdrive_save_file(service=_service, parent_folder=folder_id, file_name=file_name, df=df_play)
 
     step += 1
     my_bar.progress(step*100 // step_all, text=progress_text)
@@ -960,13 +1026,14 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
     # st.subheader("Ideal number of players for each game you own")
     st.checkbox('Include boardgame expansions as well', key="h_index_playnum")
     player_range = st.slider('Narrow on ideal player number', 1, 8, (1, 8), key='stat_playernum')
-
-    df_playnum = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+    df_ordered_collection = df_collection.sort_values("name").reset_index(drop=True)
+    df_playnum = df_ordered_collection.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     df_playnum = df_playnum.query('own == 1')
+
     if "h_index_playnum" in st.session_state:
         if not st.session_state.h_index_playnum:
             df_playnum = df_playnum.query('type == "boardgame"')
-    df_playnum = df_playnum.reset_index()
+    df_playnum.reset_index(drop=True, inplace=True)
     df_playnum = df_playnum[["name", "numplays", "user_rating", "weight", "image",
                              "min_player", "max_player", "objectid", "own"]]
     df_playnum["own"] = df_playnum["own"].astype(object)
@@ -975,22 +1042,27 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
     for index in range(row_no):
         feedback = [0, 0, 0, 0, 0, 0, 0, 0]
         object_id = int(df_playnum.at[index, "objectid"])
-        min_player = int(df_playnum.at[index, "min_player"])
-        max_player = min(int(df_playnum.at[index, "max_player"]), 8)
+        try:
+            min_player = int(df_playnum.at[index, "min_player"])
+        except ValueError:
+            min_player = 0
+        try:
+            max_player = min(int(df_playnum.at[index, "max_player"]), 8)
+        except ValueError:
+            max_player = 0
         player_info = df_playnum_infodb.query(f'objectid == {object_id}').reset_index()
         inner_row_no = len(player_info)
         if inner_row_no == 0:
             df_playnum.at[index, "objectid"] = 0
             df_playnum.at[index, "own"] = feedback
             continue
-        votes = 0
         for j in range(inner_row_no):
             current_playernum = int(player_info.at[j, "numplayers"])
             if min_player <= current_playernum <= max_player:
-                best = player_info.at[j, "best"]
-                rec = player_info.at[j, "recommended"]*1
-                not_rec = player_info.at[j, "not recommended"]
-                feedback[current_playernum-1] = best*3 + rec
+                best = int(player_info.at[j, "best"])
+                rec = int(player_info.at[j, "recommended"]*1)
+                not_rec = int(player_info.at[j, "not recommended"])
+                feedback[current_playernum-1] = best*3 + rec + not_rec*0
             else:
                 continue
         votes = sum(feedback)
@@ -1002,6 +1074,7 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
 
     if not ("stat_playernum" in st.session_state):
         player_range = (1, 8)
+    df_playnum["objectid"] = df_playnum["objectid"].astype(int)
     df_playnum = df_playnum.query(f'objectid >= {player_range[0]}')
     df_playnum = df_playnum.query(f'objectid <= {player_range[1]}')
 
@@ -1010,7 +1083,7 @@ def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df
     table_height = min(20, len(df_playnum)) * 35 + 3
     st.dataframe(df_playnum, column_config={
         "Player no stat": st.column_config.BarChartColumn(
-            help="BGG users\' feedback on specific player numbers (1-8 players shown)", y_min=0,y_max=100),
+            help="BGG users\' feedback on specific player numbers (1-8 players shown)", y_min=0, y_max=100),
         "image": st.column_config.ImageColumn("Image", width="small")
     }, hide_index=True, height=table_height, use_container_width=True)
 
@@ -1025,7 +1098,7 @@ def main():
 
     if 'sidebar_state' not in st.session_state:
         st.session_state.sidebar_state = 'expanded'
-    st.set_page_config(initial_sidebar_state=st.session_state.sidebar_state)
+    st.set_page_config(initial_sidebar_state=st.session_state.sidebar_state, layout="wide")
 
     my_service = gdrive_authenticate()
 

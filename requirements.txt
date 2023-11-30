@@ -1,5 +1,7 @@
-streamlit
+googleapiclient
+streamlit~=1.28.2
 lxml
-pandas
-plotly
-google-api-python-client
+pandas~=2.1.3
+plotly~=5.18.0
+
+requests~=2.31.0
