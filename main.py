@@ -724,11 +724,26 @@ def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.Dat
     # st.subheader("Favourite designers")
     st.selectbox("How to measure?", ("Favourite based on number of games known", "Favourite based on plays",
                                      "Favourite based on user' ratings"), key='sel_designer')
-    st.checkbox('Include boardgame expansions as well', key="h_index_designer")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if "h_toggle_owned" not in st.session_state:
+            st.session_state.h_toggle_owned = False
+        if st.session_state.h_toggle_owned:
+            st.toggle("Toggle it to show only the items owned", key="h_toggle_owned", value=True)
+        else:
+            st.toggle("Toggle it to show all items", key="h_toggle_owned")
+    with col2:
+        st.toggle('Include boardgame expansions as well', key="h_toggle_collection")
+
     df_favourite_designer = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
-    if "h_index_designer" in st.session_state:
-        if not st.session_state.h_index_designer:
+    if "h_toggle_owned" in st.session_state:
+        if not st.session_state.h_toggle_owned:
+            df_favourite_designer = df_favourite_designer.query('own == 1')
+    if "h_toggle_collection" in st.session_state:
+        if not st.session_state.h_toggle_collection:
             df_favourite_designer = df_favourite_designer.query('type == "boardgame"')
+
     df_favourite_designer = pd.DataFrame(df_favourite_designer[["designer", "name", "numplays",
                                                                 "user_rating", "weight"]].reset_index())
 
@@ -876,10 +891,12 @@ def stat_h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
     # st.subheader("H-index")
     st.selectbox("Show data from period...", ('All times', 'Last year (starting from today)',
                                               'For each calendar year'), key='sel_hindex')
-    st.checkbox('Include boardgame expansions as well', key="h_index_exp")
+
+    st.toggle('Include boardgame expansions as well', key="h_toggle_collection")
+
     df = pd.merge(df_plays, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
-    if "h_index_exp" in st.session_state:
-        if not st.session_state.h_index_exp:
+    if "h_toggle_collection" in st.session_state:
+        if not st.session_state.h_toggle_collection:
             df = df.query('type == "boardgame"')
     df = df[["name", "quantity", "date"]]
     df.rename(columns={"name": "Name", "quantity": "Number of plays", "date": "Date"}, inplace=True)
@@ -1048,46 +1065,112 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     return None
 
 
-def stat_by_weight(df_game_info: pd.DataFrame, df_plays: pd.DataFrame) -> None:
-    st.checkbox('Include boardgame expansions as well', key="weight_exp")
+def stat_by_weight(df_game_info: pd.DataFrame, df_collection: pd.DataFrame, df_plays: pd.DataFrame) -> None:
+    col1, col2 = st.columns(2)
+    with col1:
+        if "h_toggle_owned" not in st.session_state:
+            st.session_state.h_toggle_owned = False
+        if st.session_state.h_toggle_owned:
+            st.toggle("Toggle it to show only the items owned", key="h_toggle_owned", value=True)
+        else:
+            st.toggle("Toggle it to show all items played", key="h_toggle_owned")
+    with col2:
+        st.toggle('Include boardgame expansions as well', key="h_toggle_collection")
+
     most_played = pd.DataFrame(df_plays.groupby("objectid")["quantity"].sum())
     most_played = most_played.sort_values("quantity", ascending=False)
-    most_played = pd.merge(most_played, df_game_info, how="left", on="objectid")
+    most_played = most_played.merge(df_game_info, how="left", on="objectid", suffixes=("", "_y"))
+    most_played = most_played.merge(df_collection, how="left", on="objectid", suffixes=("", "_y"))
     most_played["year_published"] = most_played["year_published"].clip(1990)
-    most_played = (most_played[["objectid", "type", "name", "year_published", "weight", "quantity", "rating_average"]].
-                   sort_values("quantity", ascending=False))
+
+    if "h_toggle_owned" in st.session_state:
+        if not st.session_state.h_toggle_owned:
+            most_played = most_played.query('own == 1')
+    if "h_toggle_collection" in st.session_state:
+        if not st.session_state.h_toggle_collection:
+            most_played = most_played.query('type == "boardgame"')
+
+    most_played = most_played[["objectid", "type", "name", "year_published", "weight", "quantity", "rating_average"]]
+    most_played = most_played.sort_values("quantity", ascending=False)
     most_played.rename(columns={"rating_average": "Average rating on BGG", "weight": "Weight",
                               "quantity": "Number of plays"}, inplace=True)
-    if "weight_exp" in st.session_state:
-        if not st.session_state.weight_exp:
-            most_played = most_played.query('type == "boardgame"')
     fig = px.scatter(most_played, x="Average rating on BGG", y="Weight", size="Number of plays",
                      hover_name="name", height=600
     )
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
+    with st.expander("See explanation of data"):
+        st.write('For each item on BGG there is a number called \'Weight\'. it shows how complex the game is.'
+                 'BGG users can rate every item on the website. BGG create multiple average, here the \'Average '
+                 'rating\' is used (calculated by BGG). The size of the plots show how many times the user played '
+                 'with it.')
+        st.markdown("- Note: more serious players prefers games with higher weight. Also more serious players take the "
+                    "energy to document plays, maintain a collection and rate games on BGG. As a result, games with "
+                    "higher weight usually has higher rating.")
+        st.write("Data used:")
+        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
+        st.markdown("- user's collection for ownership (xmlapi2/collection)")
+        st.markdown("- detailed board game info for board game type (to separate board games and "
+                    "extensions) (xmlapi2/thing)")
+    return None
+
 
 def stat_by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
-    st.checkbox('Include boardgame expansions as well', key="h_index_rating")
+    col1, col2 = st.columns(2)
+    with col1:
+        if "h_toggle_owned" not in st.session_state:
+            st.session_state.h_toggle_owned = False
+        if st.session_state.h_toggle_owned:
+            st.toggle("Toggle it to show only the items owned", key="h_toggle_owned", value=True)
+        else:
+            st.toggle("Toggle it to show all items played", key="h_toggle_owned")
+    with col2:
+        st.toggle('Include boardgame expansions as well', key="h_toggle_collection")
+
     df_rating = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     df_rating = pd.DataFrame(df_rating.loc[df_rating["user_rating"] > 0])
-    if "h_index_rating" in st.session_state:
-        if not st.session_state.h_index_rating:
+
+    if "h_toggle_owned" in st.session_state:
+        if not st.session_state.h_toggle_owned:
+            df_rating = df_rating.query('own == 1')
+    if "h_toggle_collection" in st.session_state:
+        if not st.session_state.h_toggle_collection:
             df_rating = df_rating.query('type == "boardgame"')
 
     most_played = pd.DataFrame(df_plays.groupby("objectid").sum())
     df_rating = df_rating.merge(most_played, how="left", left_on="objectid", right_on="index", suffixes=("", "_z"))
-    df_rating = df_rating[["name", "numplays", "user_rating", "rating_average", "quantity"]]
+    df_rating = df_rating[["name", "numplays", "user_rating", "rating_average"]]
     df_rating.rename(columns={"user_rating": "User's rating", "rating_average": "Average rating on BGG",
                               "numplays": "Number of plays"}, inplace=True)
-
     df_rating = df_rating.sort_values(by="Number of plays", ascending=False)
 
+    max_size = max(df_rating["Number of plays"].max() // 100, 1)
+    df_rating["color_data"] = "Data"
+    for i in range(1000):
+        new_row = pd.DataFrame({"name": "", "Number of plays": max_size, "User's rating": i/100,
+                   "Average rating on BGG": i/100, "color_data": "Equal values line"}, index=[len(df_rating)])
+        df_rating = pd.concat([df_rating, new_row])
+
     fig = px.scatter(df_rating, x="Average rating on BGG", y="User's rating", size="Number of plays",
-                     hover_name="name", range_x=[4,10.2], range_y=[4,10.2], height=600, width=600)
+                     hover_name="name", color="color_data", color_discrete_sequence=["#000000", "#FB0D0D"],
+                     size_max=50)
     fig.update_xaxes(showgrid=True)
     fig.update_yaxes(showgrid=True)
-    st.plotly_chart(fig, theme="streamlit")
+    st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+
+    with st.expander("See explanation of data"):
+        st.write('For each item on BGG users can add rating. BGG create multiple average, here the \'Average '
+                 'rating\' is used at axis X (calculated by BGG). The axis Y uses the specific rating of the user.'
+                 ' The size of the plots show how many times the user played with it.')
+        st.markdown("- Note: players play more with their favourite games. Also they usually rate their favourite"
+                    "games higher than the majority of other players. So naturally the plots quite often will be "
+                    "to the left of the green points describing this situation.")
+        st.write("Data used:")
+        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
+        st.markdown("- user's collection for ownership (xmlapi2/collection)")
+        st.markdown("- detailed board game info for board game type (to separate board games and "
+                    "extensions) (xmlapi2/thing)")
+    return None
 
 
 def stat_collection(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df_playnum_infodb: pd.DataFrame) -> None:
@@ -1283,7 +1366,7 @@ def main():
                 case "Games known from BGG top list":
                     stat_historic_ranking(global_historic_rankings, my_plays)
                 case "Stat around game weight":
-                    stat_by_weight(global_game_infodb, my_plays)
+                    stat_by_weight(global_game_infodb, my_collection, my_plays)
                 case "Stat around ratings":
                     stat_by_rating(my_collection, my_plays, global_game_infodb)
         else:
