@@ -80,18 +80,20 @@ def gdrive_complex_save_file(service: googleapiclient.discovery.Resource,
         token = str(datetime.now())
         df_session = pd.DataFrame(["test"])
         q = f'mimeType = "application/vnd.google-apps.folder" and name contains "session_id"'
-        items = gdrive_search(service, q)
-        session_folder_id = items[0]["id"]
+        folder_items = gdrive_search(service, q)
+        session_folder_id = folder_items[0]["id"]
         token_id = gdrive_save_file(service, parent_folder=session_folder_id, file_name=token, df=df_session)
-
         # waits until this is the first token (no other token is created earlier)
         while 0 == 0:
-            items = gdrive_search(service, query=f'"{session_folder_id}" in parents')
-            if not items:
+            token_items = gdrive_search(service, query=f'"{session_folder_id}" in parents')
+            if not token_items:
                 continue
-            first_token_id = items[0]["id"]
-            first_token_time = items[0]["modifiedTime"]
-            for item in items:
+            first_token_id = ""
+            first_token_time = ""
+            for item in token_items:
+                if first_token_id == "":
+                    first_token_id = item["id"]
+                    first_token_time = item["modifiedTime"]
                 if first_token_time > item["modifiedTime"]:
                     first_token_id = item["id"]
                     first_token_time = item["modifiedTime"]
@@ -112,10 +114,10 @@ def gdrive_complex_save_file(service: googleapiclient.discovery.Resource,
         existing_file_id = items[0]["id"]
         my_token = create_token()
         df_existing = gdrive_load_file(service, items[0]["id"])
-        df_new = pd.concat([df_existing, df], ignore_index=True)
-        df_new = df_new.drop_duplicates()
+        df_merged = pd.concat([df_existing, df], ignore_index=True)
+        df_merged = df_merged.drop_duplicates()
         gdrive_delete_file(service, existing_file_id)
-        file_id = gdrive_save_file(service, parent_folder, filename, df_new)
+        file_id = gdrive_save_file(service, parent_folder, filename, df_merged)
         delete_token(my_token)
     return file_id
 
@@ -261,7 +263,6 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
         return sort_by["name"]
 
     st.caption("Importing historical game rankings")
-    previous_file_id = ""
     filename = "historical_ranking.csv"
 
     items = gdrive_search(_service, f'name contains "{filename}"')
@@ -269,13 +270,10 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
         existing_imports = []
         # game DB is the start of the historical dataframe
         df_historical = game_list[["objectid", "name", "yearpublished"]].set_index("objectid")
-        previous_file_exists = False
     else:
         df_historical = gdrive_load_file(_service, items[0]["id"])
         existing_imports = df_historical.columns.values.tolist()
         del existing_imports[:3]
-        previous_file_exists = True
-        previous_file_id = items[0]["id"]
 
     # identifying the historical data files
     files_to_import = []
@@ -332,11 +330,6 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
     # TODO: games with multiple ID issue
 
     gdrive_complex_save_file(_service, path_processed, filename, df_historical)
-    # UPDATED
-    # if previous_file_exists:
-    #     gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_historical)
-    # else:
-    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="historical_ranking.csv", df=df_historical)
 
     my_bar.empty()
     st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
@@ -346,95 +339,91 @@ def import_historic_ranking(_service: googleapiclient.discovery.Resource, path_s
 # noinspection PyTypeChecker
 @st.cache_data
 def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: str,
-                  df: pd.DataFrame):
-    if "user_rating" in df.columns.values:
+                  df_new: pd.DataFrame):
+    if "user_rating" in df_new.columns.values:
         st.caption("Importing detailed game information for user's collection...")
     else:
         st.caption("Importing detailed game information for user's plays...")
 
-    previous_game_file_id = ""
-    previous_play_file_id = ""
     filename_game = "game_infoDB.csv"
     filename_playnum = "playnum_infoDB.csv"
 
     items = gdrive_search(_service, f'name contains "{filename_game}"')
     if not items:
-        previous_game_file_exists = False
         df_game_info = pd.DataFrame()
     else:
-        previous_game_file_exists = True
         previous_game_file_id = items[0]["id"]
         df_game_info = gdrive_load_file(_service, previous_game_file_id)
 
     items = gdrive_search(_service, f'name contains "{filename_playnum}"')
     if not items:
-        previous_play_file_exists = False
         df_playnumdb = pd.DataFrame()
     else:
-        previous_play_file_exists = True
         previous_play_file_id = items[0]["id"]
         df_playnumdb = gdrive_load_file(_service, previous_play_file_id)
 
-    if len(df) == 0:
+    if df_new.empty:
         return df_game_info, df_playnumdb
 
-    unique_games = df.groupby("objectid").count().reset_index()
-    unique = unique_games["objectid"].tolist()
+    possible_new_items = df_new.groupby("objectid").count().reset_index()
+    possible_new_items_list = possible_new_items["objectid"].tolist()
 
-    games_to_dl = []
+    games_to_import_list = []
     if not df_game_info.empty:
-        for i in unique:
+        for i in possible_new_items_list:
             if i not in df_game_info["objectid"].values:
-                games_to_dl.append(i)
+                games_to_import_list.append(i)
     else:
-        games_to_dl = unique
+        games_to_import_list = possible_new_items_list
+    if not games_to_import_list:
+        return df_game_info, df_playnumdb
 
     progress_text = "Reading game information..."
     my_bar = st.progress(0, text=progress_text)
     step = 0
-    step_all = len(games_to_dl)
-    for i in games_to_dl:
+    step_all = len(games_to_import_list)
+    for i in games_to_import_list:
         result = import_xml_from_bgg(f'thing?id={i}&stats=1')
         row_objectid = i
 
-        df = pd.read_xml(StringIO(result), encoding="utf-8")
-        row_type = df.iloc[0, 0]
-        if "thumbnail" in df:
-            row_thumbnail = df.iloc[0, 2]
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8")
+        row_type = df_item.iloc[0, 0]
+        if "thumbnail" in df_item:
+            row_thumbnail = df_item.iloc[0, 2]
         else:
             row_thumbnail = ""
-        if "image" in df:
-            row_image = df.iloc[0, 3]
+        if "image" in df_item:
+            row_image = df_item.iloc[0, 3]
         else:
             row_image = ""
 
-        df = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//yearpublished")
-        row_published = df.iloc[0, 0]
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//yearpublished")
+        row_published = df_item.iloc[0, 0]
 
-        df = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//minplayers")
-        row_min_player = df.iloc[0, 0]
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//minplayers")
+        row_min_player = df_item.iloc[0, 0]
 
-        df = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//maxplayers")
-        row_max_player = df.iloc[0, 0]
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//maxplayers")
+        row_max_player = df_item.iloc[0, 0]
 
-        df = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//name")
-        df = df.query('type == "primary"')
-        row_name = df.iloc[0, 2]
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//name")
+        df_item = df_item.query('type == "primary"')
+        row_name = df_item.iloc[0, 2]
 
         game_links = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//link")
-        df = game_links.query('type == "boardgamedesigner"')
-        row_designer = ', '.join(df["value"])
+        df_item = game_links.query('type == "boardgamedesigner"')
+        row_designer = ', '.join(df_item["value"])
 
         if "inbound" in game_links:
-            df = game_links.query('(type == "boardgameexpansion") and (inbound == "false")')
-            row_expansion_of = ', '.join(df["value"])
+            df_item = game_links.query('(type == "boardgameexpansion") and (inbound == "false")')
+            row_expansion_of = ', '.join(df_item["value"])
         else:
-            df = game_links.query('type == "boardgameexpansion"')
-            row_expansion_of = ', '.join(df["value"])
+            df_item = game_links.query('type == "boardgameexpansion"')
+            row_expansion_of = ', '.join(df_item["value"])
 
         if "inbound" in game_links:
-            df = game_links.query('(type == "boardgameexpansion") and (inbound == "true")')
-            row_expansion_for = ', '.join(df["value"])
+            df_item = game_links.query('(type == "boardgameexpansion") and (inbound == "true")')
+            row_expansion_for = ', '.join(df_item["value"])
         else:
             row_expansion_for = ""
 
@@ -467,25 +456,10 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
         my_bar.progress(step*100 // step_all, text=progress_text)
     my_bar.empty()
 
-
     gdrive_complex_save_file(_service, path_processed, filename_game, df_game_info)
     gdrive_complex_save_file(_service, path_processed, filename_playnum, df_playnumdb)
-    # UPDATED
-    # if previous_game_file_exists:
-    #     # gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
-    #     gdrive_delete_file(_service, previous_game_file_id)
-    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
-    # else:
-    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="game_infoDB.csv", df=df_game_info)
-    #
-    # if previous_play_file_exists:
-    #     # gdrive_overwrite_file(_service, file_name=previous_file_id, df=df_game_info)
-    #     gdrive_delete_file(_service, previous_play_file_id)
-    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="playnum_infoDB.csv", df=df_playnumdb)
-    # else:
-    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="playnum_infoDB.csv", df=df_playnumdb)
 
-    st.caption(f'Importing finished. {len(games_to_dl)} new game information saved.')
+    st.caption(f'Importing finished. {len(games_to_import_list)} new game information saved.')
     return df_game_info, df_playnumdb
 
 
@@ -550,12 +524,10 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
     :return: imported data in dataframe
     """
     st.caption(f'Importing collection of {username}...')
-    file_id = ""
-    filename= f'collection_{username}.csv'
+    filename = f'collection_{username}.csv'
 
     item = gdrive_search(_service, query=f'name contains "{filename}"')
     if item:
-        processed_file = True
         file_id = item[0]["id"]
         df = gdrive_load_file(service=_service, file_name=file_id)
         last_imported = item[0]["modifiedTime"]
@@ -564,8 +536,6 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
         if how_fresh.days < refresh:
             st.caption(f'Importing finished. Number of games in collection: {len(df)}')
             return df
-    else:
-        processed_file = False
 
     result = import_xml_from_bgg(f'collection?username={username}&stats=1')
 
@@ -579,7 +549,6 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
     # User ratings
     df_rating = pd.read_xml(StringIO(result), xpath=".//rating")
     df_rating = pd.DataFrame(df_rating["value"])
-    # df_rating = df_rating.fillna(-1)
     df_rating.rename(columns={"value": "user_rating"}, inplace=True)
     df = pd.concat([df, df_rating], axis=1).reset_index(drop=True)
 
@@ -593,15 +562,6 @@ def import_user_collection(_service: googleapiclient.discovery.Resource, usernam
     items = gdrive_search(_service, query=q)
     folder_id = items[0]["id"]
     gdrive_complex_save_file(_service, folder_id, filename, df)
-    # UPDATED
-    # if processed_file:
-    #     gdrive_overwrite_file(service=_service, file_name=file_id, df=df)
-    # else:
-    #     q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
-    #     items = gdrive_search(_service, query=q)
-    #     folder_id = items[0]["id"]
-    #     file_name = f'collection_{username}.csv'
-    #     gdrive_save_file(service=_service, parent_folder=folder_id, file_name=file_name, df=df)
 
     st.caption(f'Collection imported. Number of games + expansions known: {len(df)}')
     return df
@@ -621,12 +581,10 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
     """
     st.caption(f'Importing plays of {username}...')
     df = pd.DataFrame()
-    file_id = ""
     filename = f'plays_{username}.csv'
 
     item = gdrive_search(_service, query=f'name contains "{filename}"')
     if item:
-        processed_file = True
         file_id = item[0]["id"]
         df = gdrive_load_file(service=_service, file_name=file_id)
         last_imported = item[0]["modifiedTime"]
@@ -635,8 +593,6 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
         if how_fresh.days < refresh:
             st.caption(f'Importing finished. Number of plays: {len(df)}')
             return df
-    else:
-        processed_file = False
 
     # read the first page of play info from BGG
     result = import_xml_from_bgg(f'plays?username={username}')
@@ -688,15 +644,6 @@ def import_user_plays(_service: googleapiclient.discovery.Resource, username: st
     items = gdrive_search(_service, query=q)
     folder_id = items[0]["id"]
     gdrive_complex_save_file(_service, folder_id, filename, df_play)
-    # UPDATED
-    # if processed_file:
-    #     gdrive_overwrite_file(service=_service, file_name=file_id, df=df_play)
-    # else:
-    #     q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
-    #     items = gdrive_search(_service, query=q)
-    #     folder_id = items[0]["id"]
-    #     file_name = f'plays_{username}.csv'
-    #     gdrive_save_file(service=_service, parent_folder=folder_id, file_name=file_name, df=df_play)
 
     step += 1
     my_bar.progress(step*100 // step_all, text=progress_text)
@@ -741,9 +688,11 @@ def stat_basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_inf
 
     with st.expander("See explanation of data"):
         st.write("Data used:")
-        st.markdown("- user's collection plays for size of collection, ownership of items, ratings by the user  (xmlapi2/collection)")
+        st.markdown("- user's collection plays for size of collection, ownership of items, ratings by the user "
+                    "(xmlapi2/collection)")
         st.markdown("- user's documented plays for items tried, and other play related statistics (xmlapi2/plays)")
-        st.markdown("- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)")
+        st.markdown("- Detailed board game info for board game type to separate board games and extensions "
+                    "(xmlapi2/thing)")
 
 
 def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
@@ -765,9 +714,8 @@ def stat_favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
         df_favourite_games.iloc[i, pos] = f'https://boardgamegeek.com/boardgame/{df_favourite_games.iloc[i, pos]}'
 
     df_favourite_games.index = pd.RangeIndex(start=1, stop=len(df_favourite_games) + 1, step=1)
-    table_height = (len(df_favourite_games) + 1) * 35 + 3
 
-    st.dataframe(df_favourite_games, use_container_width=True, height=table_height,
+    st.dataframe(df_favourite_games, use_container_width=True,
                  column_config={"image": st.column_config.ImageColumn("Image", width="small"),
                                 "link": st.column_config.LinkColumn("BGG link", width="small")})
 
@@ -788,7 +736,7 @@ def stat_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.Dat
     row_no = len(df_favourite_designer)
     for index in range(row_no):
         designers = str(df_favourite_designer.iloc[index, pos]).split(', ')
-        if len(designers) > 1:
+        if designers:
             first = designers.pop(0)
             df_favourite_designer.at[index, "designer"] = first
             extra_item = df_favourite_designer.iloc[[index]]
@@ -835,22 +783,41 @@ def stat_not_played(collection: pd.DataFrame) -> None:
     # st.subheader("Owned games not played yet")
     games_owned = collection.loc[collection["own"] == 1]
     not_played = pd.DataFrame(games_owned["name"].loc[games_owned["numplays"] == 0].sort_values())
-    if len(not_played) == 0:
+    if not_played.empty:
         st.write("Congratulation, you have already played with all games you currently own!")
     else:
         not_played.index = pd.RangeIndex(start=1, stop=len(not_played) + 1, step=1)
         st.table(not_played)
 
 
-def stat_games_by_year(df_collection: pd.DataFrame) -> None:
+def stat_games_by_year(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
     # st.subheader("Games tried grouped by year of publication")
+    col1, col2 = st.columns(2)
+    with col1:
+        if "h_toggle_owned" not in st.session_state:
+            st.session_state.h_toggle_owned = False
+        if st.session_state.h_toggle_owned:
+            st.toggle("Toggle it to show only the items owned", key="h_toggle_owned", value=True)
+        else:
+            st.toggle("Toggle it to show all items of the collection", key="h_toggle_owned")
+    with col2:
+        st.toggle('Include boardgame expansions as well', key="h_toggle_collection")
     cut_year = st.slider('Which year to start from?', 1950, 2020, 2000)
 
-    played = df_collection[["name", "yearpublished"]].loc[df_collection["numplays"] != 0].reset_index()
+    played = df_collection.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+    played = played[["name", "yearpublished", "own", "type", "numplays"]].loc[df_collection["numplays"] != 0].reset_index()
     under_cut = len(played.loc[df_collection["yearpublished"] <= cut_year])
     played["yearpublished"] = played["yearpublished"].clip(lower=cut_year)
+
+    if "h_toggle_owned" in st.session_state:
+        if not st.session_state.h_toggle_owned:
+            played = played.query('own == 1')
+    if "h_toggle_collection" in st.session_state:
+        if not st.session_state.h_toggle_collection:
+            played = played.query('type == "boardgame"')
+
     played = played.groupby("yearpublished").count().reset_index()
-    played.drop("index", inplace=True, axis=1)
+    played.drop(["index", "own", "type", "numplays"], inplace=True, axis=1)
     if under_cut > 0:
         played["yearpublished"] = played["yearpublished"].astype("str")
         played.loc[0, "yearpublished"] = "-" + str(cut_year)
@@ -858,43 +825,57 @@ def stat_games_by_year(df_collection: pd.DataFrame) -> None:
     played.rename(columns={"yearpublished": "Games published that year known"}, inplace=True)
 
     st.line_chart(played, x="Games published that year known", y="Quantity", height=400)
-    # played.index = pd.RangeIndex(start=1, stop=len(played) + 1, step=1)
-    st.table(played)
+    with st.expander("Numerical data"):
+        played.index = pd.RangeIndex(start=1, stop=len(played) + 1, step=1)
+        st.table(played)
+
+    with st.expander("See explanation of data"):
+        st.write("Chart represents all items that the user has played with. Sorting the items based on their publication year."
+                 " Any games - that was published before the 'starting year' selected - are added to the first year.")
+        st.write("Data used:")
+        st.markdown("- user's collection for year of publishing, and information whether the item is knows "
+                    "for the user (xmlapi2/collection)")
+        st.markdown("- Note: technically it is possible that user can have plays documented to an item that is "
+                    "not part of his / her collection")
+        st.markdown("- Note: BGG does not have publication year info on all items. The missing data is filled with 0.")
+        st.markdown("- Detailed board game info for board game type to separate board games and extensions"
+                    " (xmlapi2/thing)")
 
 
 def stat_h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
-    def count_h(df: pd.DataFrame) -> (pd.DataFrame, int):
-        if df.empty:
-            return df, 0
-        df = df.groupby("Name", sort=False).sum().reset_index()
-        df = df.sort_values(by=["Number of plays", "Name"], ascending=[False, True]).reset_index()
+    def count_h(df_raw: pd.DataFrame) -> (pd.DataFrame, int):
+        if df_raw.empty:
+            return df_raw, 0
+        df_count = df_raw.groupby("Name", sort=False).sum().reset_index()
+        df_count = df_count.sort_values(by=["Number of plays", "Name"], ascending=[False, True]).reset_index()
         i = 0
         while 0 == 0:
             try:
-                if df.iloc[i]["Number of plays"] < i + 1:
+                if df_count.iloc[i]["Number of plays"] < i + 1:
                     break
             except IndexError:
                 break
             i += 1
 
-        df_result = pd.DataFrame(df[["Name", "Number of plays"]].loc[df["Number of plays"] >= i])
-        if len(df_result) > i:
-            newline = "\n"
+        df_player_num_votes = pd.DataFrame(df_count[["Name", "Number of plays"]].loc[df_count["Number of plays"] >= i])
+        if len(df_player_num_votes) > i:
             extra_text = "Also in the H-index range are: "
-            for index in range(i, len(df_result)):
-                extra_text = f'{extra_text}{df_result.at[index, "Name"]} ({df_result.at[index, "Number of plays"]} plays), '
+            for index in range(i, len(df_player_num_votes)):
+                extra_text = (f'{extra_text}{df_player_num_votes.at[index, "Name"]} '
+                              f'({df_player_num_votes.at[index, "Number of plays"]} plays), ')
             extra_text = extra_text[:-2]
-            df_result.at[i, "Name"] = extra_text
-            df_result["Number of plays"] = df_result["Number of plays"].astype(str)
-            df_result.at[i, "Number of plays"] = f'At least {i}'
+            df_player_num_votes.at[i, "Name"] = extra_text
+            df_player_num_votes["Number of plays"] = df_player_num_votes["Number of plays"].astype(str)
+            df_player_num_votes.at[i, "Number of plays"] = f'At least {i}'
             cut = i+1
         else:
             cut = i
-        df_result.index = pd.RangeIndex(start=1, stop=len(df_result) + 1, step=1)
-        return df_result.head(cut), i
+        df_player_num_votes.index = pd.RangeIndex(start=1, stop=len(df_player_num_votes) + 1, step=1)
+        return df_player_num_votes.head(cut), i
 
     # st.subheader("H-index")
-    st.selectbox("Show data from period...", ('All times', 'Last year (starting from today)', 'For each calendar year'), key='sel_hindex')
+    st.selectbox("Show data from period...", ('All times', 'Last year (starting from today)',
+                                              'For each calendar year'), key='sel_hindex')
     st.checkbox('Include boardgame expansions as well', key="h_index_exp")
     df = pd.merge(df_plays, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     if "h_index_exp" in st.session_state:
@@ -939,7 +920,8 @@ def stat_h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
         st.write("Your h-index is the smallest number of games that you have played at least that number of times.")
         st.write("Data used:")
         st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
-        st.markdown("- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)")
+        st.markdown("- Detailed board game info for board game type to separate board games and extensions"
+                    " (xmlapi2/thing)")
     return None
 
 
@@ -967,22 +949,23 @@ def stat_yearly_plays(df_play_stat: pd.DataFrame) -> None:
     df_all_plays = df_all_plays.groupby("year")["quantity"].sum()
     df_all_plays.rename("Number of plays", inplace=True)
 
-    df = pd.merge(df_new_games, df_played, how="left", on="year")
-    df = pd.merge(df, df_all_plays, how="left", on="year").reset_index()
+    df_result = pd.merge(df_new_games, df_played, how="left", on="year")
+    df_result = pd.merge(df_result, df_all_plays, how="left", on="year").reset_index()
 
-    table_height = (len(df)+1) * 35 + 3
-    st.dataframe(df, hide_index=True, height=table_height, use_container_width=True)
+    st.dataframe(df_result, hide_index=True, use_container_width=True)
     with st.expander("See explanation of data"):
         st.write("Summary of play statistics grouped by year.")
         st.write("Data used:")
         st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
         st.write("Description of columns:")
         st.markdown("- New games tried: the number of unique games where the first documented play happened that year")
-        st.markdown("- Known games: the number of unique games where the first documented play happened UNTIL that year (including that year as well)")
-        st.markdown("- Unique games played: the number of unique games where there is at least one documented play happened that year")
+        st.markdown("- Known games: the number of unique games where the first documented play happened "
+                    "UNTIL that year (including that year as well)")
+        st.markdown("- Unique games played: the number of unique games where there is at least one documented "
+                    "play happened that year")
         st.markdown("- Number of plays: the number of plays documented play happened that year")
-        st.write("Note: BGG let you add quantity to a recorded play (like you played that game 3 times in a row, and you create one play for all of this. This statistics would count this 3 plays.")
-
+        st.write("Note: BGG let you add quantity to a recorded play (like you played that game 3 times in a row, "
+                 "and you create one play for all of this. This statistics would count this 3 plays.")
     return None
 
 
@@ -1053,16 +1036,15 @@ def stat_historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
         top1000 = top1000 + top500
         top2000 = top2000 + top1000
         df_result_cum.loc[len(df_result_cum)] = [periods[i], top100, top200, top300, top400, top500, top1000, top2000]
-    table_height = (len(df_result)+1) * 35 + 3
     match method:
         case "Basic":
             st.line_chart(df_result, x="Date", height=600)
             st.write("Number of games played from the BGG TOP lists:")
-            st.dataframe(df_result, hide_index=True, height=table_height)
+            st.dataframe(df_result, hide_index=True)
         case "Cumulative":
             st.line_chart(df_result_cum, x="Date", height=600)
             st.write("\nNumber of games played from the BGG TOP lists (cumulative):")
-            st.dataframe(df_result_cum, hide_index=True, height=table_height)
+            st.dataframe(df_result_cum, hide_index=True)
     return None
 
 
@@ -1074,14 +1056,13 @@ def stat_by_weight(df_game_info: pd.DataFrame, df_plays: pd.DataFrame) -> None:
     most_played["year_published"] = most_played["year_published"].clip(1990)
     most_played = (most_played[["objectid", "type", "name", "year_published", "weight", "quantity", "rating_average"]].
                    sort_values("quantity", ascending=False))
+    most_played.rename(columns={"rating_average": "Average rating on BGG", "weight": "Weight",
+                              "quantity": "Number of plays"}, inplace=True)
     if "weight_exp" in st.session_state:
         if not st.session_state.weight_exp:
             most_played = most_played.query('type == "boardgame"')
-    fig = px.scatter(
-        most_played,
-        x="rating_average",
-        y="weight",
-        size="quantity", hover_data="name", height=600
+    fig = px.scatter(most_played, x="Average rating on BGG", y="Weight", size="Number of plays",
+                     hover_name="name", height=600
     )
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
@@ -1097,82 +1078,121 @@ def stat_by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_
     most_played = pd.DataFrame(df_plays.groupby("objectid").sum())
     df_rating = df_rating.merge(most_played, how="left", left_on="objectid", right_on="index", suffixes=("", "_z"))
     df_rating = df_rating[["name", "numplays", "user_rating", "rating_average", "quantity"]]
+    df_rating.rename(columns={"user_rating": "User's rating", "rating_average": "Average rating on BGG",
+                              "numplays": "Number of plays"}, inplace=True)
 
-    df_rating = df_rating.sort_values(by="numplays", ascending=False)
+    df_rating = df_rating.sort_values(by="Number of plays", ascending=False)
 
-    fig = px.scatter(
-        df_rating,
-        x="rating_average",
-        y="user_rating",
-        size="numplays", hover_data="name", height=600
-    )
-    st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+    fig = px.scatter(df_rating, x="Average rating on BGG", y="User's rating", size="Number of plays",
+                     hover_name="name", range_x=[4,10.2], range_y=[4,10.2], height=600, width=600)
+    fig.update_xaxes(showgrid=True)
+    fig.update_yaxes(showgrid=True)
+    st.plotly_chart(fig, theme="streamlit")
 
 
-def stat_player_no(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df_playnum_infodb: pd.DataFrame) -> None:
-    # st.subheader("Ideal number of players for each game you own")
-    st.checkbox('Include boardgame expansions as well', key="h_index_playnum")
-    player_range = st.slider('Narrow on ideal player number', 1, 8, (1, 8), key='stat_playernum')
-    df_ordered_collection = df_collection.sort_values("name").reset_index(drop=True)
-    df_playnum = df_ordered_collection.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
-    df_playnum = df_playnum.query('own == 1')
-
-    if "h_index_playnum" in st.session_state:
-        if not st.session_state.h_index_playnum:
-            df_playnum = df_playnum.query('type == "boardgame"')
-    df_playnum.reset_index(drop=True, inplace=True)
-    df_playnum = df_playnum[["name", "numplays", "user_rating", "weight", "image",
-                             "min_player", "max_player", "objectid", "own"]]
-    df_playnum["own"] = df_playnum["own"].astype(object)
-
-    row_no = len(df_playnum)
-    for index in range(row_no):
-        feedback = [0, 0, 0, 0, 0, 0, 0, 0]
-        object_id = int(df_playnum.at[index, "objectid"])
-        try:
-            min_player = int(df_playnum.at[index, "min_player"])
-        except ValueError:
-            min_player = 0
-        try:
-            max_player = min(int(df_playnum.at[index, "max_player"]), 8)
-        except ValueError:
-            max_player = 0
-        player_info = df_playnum_infodb.query(f'objectid == {object_id}').reset_index()
-        inner_row_no = len(player_info)
-        if inner_row_no == 0:
-            df_playnum.at[index, "objectid"] = 0
-            df_playnum.at[index, "own"] = feedback
-            continue
-        for j in range(inner_row_no):
-            current_playernum = int(player_info.at[j, "numplayers"])
-            if min_player <= current_playernum <= max_player:
-                best = int(player_info.at[j, "best"])
-                rec = int(player_info.at[j, "recommended"]*1)
-                not_rec = int(player_info.at[j, "not recommended"])
-                feedback[current_playernum-1] = best*3 + rec + not_rec*0
-            else:
+def stat_collection(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df_playnum_infodb: pd.DataFrame) -> None:
+    def calculate_ideal_player_number():
+        row_no = len(df_updated_collection)
+        for index in range(row_no):
+            feedback = [0, 0, 0, 0, 0, 0, 0, 0]
+            object_id = int(df_updated_collection.at[index, "objectid"])
+            try:
+                min_player = int(df_updated_collection.at[index, "min_player"])
+            except ValueError:
+                min_player = 0
+            try:
+                max_player = min(int(df_updated_collection.at[index, "max_player"]), 8)
+            except ValueError:
+                max_player = 0
+            player_info = df_playnum_infodb.query(f'objectid == {object_id}').reset_index()
+            inner_row_no = len(player_info)
+            if inner_row_no == 0:
+                df_updated_collection.at[index, "objectid"] = 0
+                df_updated_collection.at[index, "own"] = feedback
                 continue
-        votes = sum(feedback)
-        if votes > 0:
-            for k in range(8):
-                feedback[k] = (feedback[k] * 100) // votes
-        df_playnum.at[index, "objectid"] = feedback.index(max(feedback))+1
-        df_playnum.at[index, "own"] = feedback
+            for j in range(inner_row_no):
+                current_playernum = int(player_info.at[j, "numplayers"])
+                if min_player <= current_playernum <= max_player:
+                    best = int(player_info.at[j, "best"])
+                    rec = int(player_info.at[j, "recommended"] * 1)
+                    not_rec = int(player_info.at[j, "not recommended"])
+                    feedback[current_playernum - 1] = best * 3 + rec + not_rec * 0
+                else:
+                    continue
+            votes = sum(feedback)
+            if votes > 0:
+                for k in range(8):
+                    feedback[k] = (feedback[k] * 100) // votes
+            df_updated_collection.at[index, "objectid"] = feedback.index(max(feedback)) + 1
+            df_updated_collection.at[index, "own"] = feedback
 
-    if not ("stat_playernum" in st.session_state):
+    # st.subheader("Ideal number of players for each game you own")
+    col1, col2 = st.columns(2)
+    with col1:
+        if "h_toggle_owned" not in st.session_state:
+            st.session_state.h_toggle_owned = False
+        if st.session_state.h_toggle_owned:
+            st.toggle("Toggle it to show only the items owned", key="h_toggle_owned", value=True)
+        else:
+            st.toggle("Toggle it to show all items of the collection", key="h_toggle_owned")
+    with col2:
+        st.toggle('Include boardgame expansions as well', key="h_toggle_collection")
+    player_range = st.slider('Narrow on ideal player number', 1, 8, (1, 8), key='stat_playernum')
+
+    df_ordered_collection = df_collection.sort_values("name").reset_index(drop=True)
+    df_updated_collection = df_ordered_collection.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+
+    if "h_toggle_owned" in st.session_state:
+        if not st.session_state.h_toggle_owned:
+            df_updated_collection = df_updated_collection.query('own == 1')
+    if "h_toggle_collection" in st.session_state:
+        if not st.session_state.h_toggle_collection:
+            df_updated_collection = df_updated_collection.query('type == "boardgame"')
+    df_updated_collection.reset_index(drop=True, inplace=True)
+    df_updated_collection = df_updated_collection[["name", "numplays", "user_rating", "weight",
+                                                   "min_player", "max_player", "objectid",
+                                                   "own", "image", "thumbnail"]]
+    df_updated_collection["own"] = df_updated_collection["own"].astype(object)
+
+    # create link for the item
+    df_updated_collection = pd.DataFrame(df_updated_collection.rename(columns={"thumbnail": "Link"}))
+    pos_link = df_updated_collection.columns.get_loc("Link")
+    pos_objectid = df_updated_collection.columns.get_loc("objectid")
+    for i in range(len(df_updated_collection)):
+        df_updated_collection.iloc[i, pos_link] = \
+            f'https://boardgamegeek.com/boardgame/{df_updated_collection.iloc[i, pos_objectid]}'
+
+    calculate_ideal_player_number()
+
+    if "stat_playernum" not in st.session_state:
         player_range = (1, 8)
-    df_playnum["objectid"] = df_playnum["objectid"].astype(int)
-    df_playnum = df_playnum.query(f'objectid >= {player_range[0]}')
-    df_playnum = df_playnum.query(f'objectid <= {player_range[1]}')
+    df_updated_collection["objectid"] = df_updated_collection["objectid"].astype(int)
+    df_updated_collection = df_updated_collection.query(f'objectid >= {player_range[0]}')
+    df_updated_collection = df_updated_collection.query(f'objectid <= {player_range[1]}')
 
-    df_playnum.columns = ["Name", "No plays", "User rating", "weight", "image",
-                          "Min player", "Max player", "Ideal no", "Player no stat"]
-    table_height = min(20, len(df_playnum)) * 35 + 3
-    st.dataframe(df_playnum, column_config={
-        "Player no stat": st.column_config.BarChartColumn(
-            help="BGG users\' feedback on specific player numbers (1-8 players shown)", y_min=0, y_max=100),
-        "image": st.column_config.ImageColumn("Image", width="small")
-    }, hide_index=True, height=table_height, use_container_width=True)
+    df_updated_collection.columns = ["Name", "No plays", "User\'s rating", "Weight", "Min player", "Max player",
+                                     "Ideal player no", "BGG votes on player numbers", "Image", "Link"]
+    st.dataframe(df_updated_collection, column_config={
+        "BGG votes on player numbers": st.column_config.BarChartColumn(
+            help="BGG users' feedback on specific player numbers (1-8 players shown)", y_min=0, y_max=100),
+        "Image": st.column_config.ImageColumn("Image", width="small"),
+        "Weight": st.column_config.NumberColumn(format="%.2f"),
+        "Link": st.column_config.LinkColumn("BGG link", width="small")
+    }, hide_index=True, use_container_width=True)
+
+    with st.expander("See explanation of data"):
+        st.write('Every user has a collection on BGG. A collection "is a virtual collection of games you '
+                 'are interested in due to owning them, playing them, rating them, commenting on them, '
+                 'wanting to be notified of new content, whatever."')
+        st.write("Data used:")
+        st.markdown("- user's collection for most of the information about the game, the image and user's "
+                    "rating (xmlapi2/collection)")
+        st.markdown("- detailed board game info for board game type (to separate board games and "
+                    "extensions) and player number information (min, max, votes) (xmlapi2/thing)")
+        st.markdown("- ideal player number is calculated from the BGG votes. Calculation for each player "
+                    "number: number of 'best' votes	u'*'3 + number of 'recommended' votes u'*'1 + "
+                    "number of 'not recommended' votes	u'*'0")
+    return None
 
 
 # noinspection PyTypeChecker
@@ -1181,7 +1201,7 @@ def main():
     gdrive_original = st.secrets["gdrive_original"]
     gdrive_processed = st.secrets["gdrive_processed"]
     gdrive_user = st.secrets["gdrive_user"]
-    download_in_days = 3  # for importing user data
+    REFRESH_USER_DATA = 3  # for importing user data - number represents days
 
     if 'sidebar_state' not in st.session_state:
         st.session_state.sidebar_state = 'expanded'
@@ -1220,8 +1240,8 @@ def main():
             with placeholder.container():
                 st.subheader("Importing...")
                 # my_: data that is user specific
-                my_collection = import_user_collection(my_service, bgg_username, download_in_days)
-                my_plays = import_user_plays(my_service, bgg_username, download_in_days)
+                my_collection = import_user_collection(my_service, bgg_username, REFRESH_USER_DATA)
+                my_plays = import_user_plays(my_service, bgg_username, REFRESH_USER_DATA)
                 # global_: data independent from user
                 build_game_db(my_service, gdrive_processed, my_collection)
                 global_game_infodb, global_playnumdb = build_game_db(my_service, gdrive_processed, my_plays)
@@ -1232,7 +1252,7 @@ def main():
             placeholder.empty()
 
     if st.session_state.user_exist:
-        if len(my_collection) > 0 and len(my_plays) > 0:
+        if not (my_collection.empty or my_plays.empty):
             # user has enough information to present statistics
             st.title(f'Statistics of {bgg_username}')
             option = st.selectbox('Choose a statistic',
@@ -1245,7 +1265,7 @@ def main():
                     stat_basics(my_collection, my_plays, global_game_infodb)
                     # stat_not_played(my_collection)
                 case "User\'s collection":
-                    stat_player_no(my_collection, global_game_infodb, global_playnumdb)
+                    stat_collection(my_collection, global_game_infodb, global_playnumdb)
                 case "Favourites":
                     opt_fav = st.selectbox('Choose a topic', ('Favourite games', 'Favourites Designers'),
                                            key='stat_fav')
@@ -1257,7 +1277,7 @@ def main():
                 case "H-index":
                     stat_h_index(my_plays, global_game_infodb)
                 case "Games tried grouped by year of publication":
-                    stat_games_by_year(my_collection)
+                    stat_games_by_year(my_collection, global_game_infodb)
                 case "Play statistics by year":
                     stat_yearly_plays(my_plays)
                 case "Games known from BGG top list":
