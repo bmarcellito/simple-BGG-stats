@@ -8,6 +8,13 @@ from datetime import datetime, timedelta
 
 import re
 
+# @st.cache_data(ttl=86400)
+def add_description(title: str) -> None:
+    with st.expander("See explanation of data"):
+        df = pd.read_csv("stat_desc.csv", index_col="topic")
+        st.markdown(df.at[title, "description"])
+    return None
+
 
 def basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_info: pd.DataFrame) -> None:
     collection_merged = pd.merge(df_collection, df_game_info, how="left", on="objectid")
@@ -201,21 +208,7 @@ def games_by_publication(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
         played.index = pd.RangeIndex(start=1, stop=len(played) + 1, step=1)
         st.table(played)
 
-    with st.expander("See explanation of data"):
-        df = pd.read_csv("stat_desc.csv", index_col="topic")
-        st.write(df.at["games_by_publication", "description"])
-    # with st.expander("See explanation of data"):
-    #     st.write("Chart represents all items that the user has played with. Sorting the items based on their "
-    #              "publication year. Any games - that was published before the 'starting year' selected - are "
-    #              "added to the first year.")
-    #     st.write("Data used:")
-    #     st.markdown("- user's collection for year of publishing, and information whether the item is knows "
-    #                 "for the user (xmlapi2/collection)")
-    #     st.markdown("- Note: technically it is possible that user can have plays documented to an item that is "
-    #                 "not part of his / her collection")
-    #     st.markdown("- Note: BGG does not have publication year info on all items. The missing data is filled with 0.")
-    #     st.markdown("- Detailed board game info for board game type to separate board games and extensions"
-    #                 " (xmlapi2/thing)")
+    add_description("games_by_publication")
 
 
 def plays_by_publication(df_plays: pd.DataFrame, df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
@@ -266,18 +259,7 @@ def plays_by_publication(df_plays: pd.DataFrame, df_collection: pd.DataFrame, df
     fig.update_yaxes(showgrid=True)
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
-    with st.expander("See explanation of data"):
-        st.write("Chart represents all items that the user has played with. Sorting the items based on their "
-                 "publication year. Any games - that was published before the 'starting year' selected - are added "
-                 "to the first year.")
-        st.write("Data used:")
-        st.markdown("- user's collection for year of publishing, and information whether the item is knows "
-                    "for the user (xmlapi2/collection)")
-        st.markdown("- Note: technically it is possible that user can have plays documented to an item that is "
-                    "not part of his / her collection")
-        st.markdown("- Note: BGG does not have publication year info on all items. The missing data is filled with 0.")
-        st.markdown("- Detailed board game info for board game type to separate board games and extensions"
-                    " (xmlapi2/thing)")
+    add_description("plays_by_publication")
 
 
 def h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
@@ -356,12 +338,7 @@ def h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
                 with st.expander(f'For year {plays_years[index]} the H-index is {i}.'):
                     st.table(df_result)
 
-    with st.expander("See explanation of data"):
-        st.write("Your h-index is the smallest number of games that you have played at least that number of times.")
-        st.write("Data used:")
-        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
-        st.markdown("- Detailed board game info for board game type to separate board games and extensions"
-                    " (xmlapi2/thing)")
+    add_description("h-index")
     return None
 
 
@@ -393,19 +370,7 @@ def yearly_plays(df_play_stat: pd.DataFrame) -> None:
     df_result = pd.merge(df_result, df_all_plays, how="left", on="year").reset_index()
 
     st.dataframe(df_result, hide_index=True, use_container_width=True)
-    with st.expander("See explanation of data"):
-        st.write("Summary of play statistics grouped by year.")
-        st.write("Data used:")
-        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
-        st.write("Description of columns:")
-        st.markdown("- New games tried: the number of unique games where the first documented play happened that year")
-        st.markdown("- Known games: the number of unique games where the first documented play happened "
-                    "UNTIL that year (including that year as well)")
-        st.markdown("- Unique games played: the number of unique games where there is at least one documented "
-                    "play happened that year")
-        st.markdown("- Number of plays: the number of plays documented play happened that year")
-        st.write("Note: BGG let you add quantity to a recorded play (like you played that game 3 times in a row, "
-                 "and you create one play for all of this. This statistics would count this 3 plays.")
+    add_description("yearly_plays")
     return None
 
 
@@ -521,19 +486,7 @@ def by_weight(df_game_info: pd.DataFrame, df_collection: pd.DataFrame, df_plays:
                      hover_name="name", height=600)
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
-    with st.expander("See explanation of data"):
-        st.write('For each item on BGG there is a number called \'Weight\'. it shows how complex the game is.'
-                 'BGG users can rate every item on the website. BGG create multiple average, here the \'Average '
-                 'rating\' is used (calculated by BGG). The size of the plots show how many times the user played '
-                 'with it.')
-        st.markdown("- Note: more serious players prefers games with higher weight. Also more serious players take the "
-                    "energy to document plays, maintain a collection and rate games on BGG. As a result, games with "
-                    "higher weight usually has higher rating.")
-        st.write("Data used:")
-        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
-        st.markdown("- user's collection for ownership (xmlapi2/collection)")
-        st.markdown("- detailed board game info for board game type (to separate board games and "
-                    "extensions) (xmlapi2/thing)")
+    add_description("by_weight")
     return None
 
 
@@ -581,18 +534,7 @@ def by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_infod
     fig.update_yaxes(showgrid=True)
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
-    with st.expander("See explanation of data"):
-        st.write('For each item on BGG users can add rating. BGG create multiple average, here the \'Average '
-                 'rating\' is used at axis X (calculated by BGG). The axis Y uses the specific rating of the user.'
-                 ' The size of the plots show how many times the user played with it.')
-        st.markdown("- Note: players play more with their favourite games. Also they usually rate their favourite"
-                    "games higher than the majority of other players. So naturally the plots quite often will be "
-                    "to the left of the green points describing this situation.")
-        st.write("Data used:")
-        st.markdown("- user's documented plays for Name and Number of plays (xmlapi2/plays)")
-        st.markdown("- user's collection for ownership (xmlapi2/collection)")
-        st.markdown("- detailed board game info for board game type (to separate board games and "
-                    "extensions) (xmlapi2/thing)")
+    add_description("by_rating")
     return None
 
 
@@ -686,16 +628,5 @@ def collection(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df_pla
         "Link": st.column_config.LinkColumn("BGG link", width="small")
     }, hide_index=True, use_container_width=True)
 
-    with st.expander("See explanation of data"):
-        st.write('Every user has a collection on BGG. A collection "is a virtual collection of games you '
-                 'are interested in due to owning them, playing them, rating them, commenting on them, '
-                 'wanting to be notified of new content, whatever."')
-        st.write("Data used:")
-        st.markdown("- user's collection for most of the information about the game, the image and user's "
-                    "rating (xmlapi2/collection)")
-        st.markdown("- detailed board game info for board game type (to separate board games and "
-                    "extensions) and player number information (min, max, votes) (xmlapi2/thing)")
-        st.markdown("- ideal player number is calculated from the BGG votes. Calculation for each player "
-                    "number: number of 'best' votes	u'*'3 + number of 'recommended' votes u'*'1 + "
-                    "number of 'not recommended' votes	u'*'0")
+    add_description("collection")
     return None

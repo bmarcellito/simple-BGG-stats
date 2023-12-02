@@ -3,9 +3,54 @@
 1,favourite_games,
 2,favourite_designers,
 3,stat_not_played,
-4,games_by_publication,"Chart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that was published before the 'starting year' selected - are added to the first year.
+4,games_by_publication,"The chart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that were published before the 'starting year' selected - are added to the first year.
+
 Data used:
-- user's collection for year of publishing, and information whether the item is knows for the user (xmlapi2/collection)
-- Note: technically it is possible that user can have plays documented to an item that is not part of his / her collection
+- user's collection for the year of publishing, and information whether the item is known for the user (xmlapi2/collection)
+- Note: technically it is possible that the user can have plays documented to an item that is not part of his / her collection
 - Note: BGG does not have publication year info on all items. The missing data is filled with 0.
 - Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)"
+5	,plays_by_publication,"The chart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that was puChart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that were published before the 'starting year' selected - are added to the first year.
+
+Data used:
+- user's collection for the year of publishing, and information whether the item is known for the user (xmlapi2/collection)
+- Note: technically it is possible that the user can have plays documented to an item that is not part of his / her collection
+- Note: BGG does not have publication year info on all items. The missing data is filled with 0.
+- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing) published before the 'starting year' selected - are added to the first year."
+6,h-index,"Your h-index is the smallest number of games that you have played at least that number of times.
+
+Data used:
+- user's documented plays for Name and Number of plays (xmlapi2/plays)
+- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)"
+7,yearly_plays,"Summary of play statistics grouped by year.
+
+Description of columns:
+- New games tried: the number of unique games where the first documented play happened that year
+- Known games: the number of unique games where the first documented play happened UNTIL that year (including that year as well)
+- Unique games played: the number of unique games where there is at least one documented play happened that year
+- Number of plays: the number of plays documented that happened that year
+
+Data used
+- user's documented plays for Name and Number of plays (xmlapi2/plays)
+- Note: BGG lets you add quantity to a recorded play (like you played that game 3 times in a row, and you create one play for all of this. These statistics would count these 3 plays."
+8,historic_ranking,
+9,by_weight,"Each item on BGG has a number called 'Weight'. It shows how complex the game is. BGG users can rate every item on the website. BGG creates multiple averages, here the 'Average rating' is used (calculated by BGG). The size of the plots shows how many times the user played with it.
+- Note: more serious players prefer games with higher weight. Also, more serious players take the energy to document plays, maintain a collection, and rate games on BGG. As a result, games with higher weight usually have a higher rating.
+
+Data used:
+- user's documented plays for Name and Number of plays (xmlapi2/plays)
+- user's collection for ownership (xmlapi2/collection)
+- detailed board game info for board game type (to separate board games and extensions) (xmlapi2/thing)"
+10,by_rating,"For each item on BGG users can add ratings. BGG creates multiple averages, here the 'Average rating' is used at axis X (calculated by BGG). The axis Y uses the specific rating of the user. The size of the plots shows how many times the user played with it.
+- Note: players play more with their favorite games. Also, they usually rate their favorite games higher than most other players. So naturally the plots quite often will be to the left of the red points describing this situation.
+ 
+Data used:
+- user's documented plays for Name and Number of plays (xmlapi2/plays)
+- user's collection for ownership (xmlapi2/collection)
+- detailed board game info for board game type (to separate board games and extensions) (xmlapi2/thing)"
+11,collection,"Every user has a collection on BGG. A collection ""is a virtual collection of games you are interested in due to owning them, playing them, rating them, commenting on them, wanting to be notified of new content, whatever.
+
+Data used:
+- user's collection for most of the information about the game, the image and user's rating (xmlapi2/collection)
+- detailed board game info for board game type (to separate board games and extensions) and player number information (min, max, votes) (xmlapi2/thing)
+- ideal player number is calculated from the BGG votes. Calculation for each player number: number of 'best' votes*3 + number of 'recommended' votes*1 + number of 'not recommended' votes*0"
