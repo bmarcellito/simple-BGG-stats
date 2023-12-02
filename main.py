@@ -79,7 +79,7 @@ def main():
             match option:
                 case "Basic statistics":
                     bgg_stats.basics(my_collection, my_plays, global_game_infodb)
-                    bgg_stats.plays_by_publication(my_plays, my_collection, global_game_infodb)
+                    #bgg_stats.plays_by_publication(my_plays, my_collection, global_game_infodb)
                     # bgg_stats.stat_not_played(my_collection)
                 case "User\'s collection":
                     bgg_stats.collection(my_collection, global_game_infodb, global_play_numdb)
