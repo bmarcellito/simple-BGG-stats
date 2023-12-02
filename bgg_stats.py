@@ -202,17 +202,20 @@ def games_by_publication(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
         st.table(played)
 
     with st.expander("See explanation of data"):
-        st.write("Chart represents all items that the user has played with. Sorting the items based on their "
-                 "publication year. Any games - that was published before the 'starting year' selected - are "
-                 "added to the first year.")
-        st.write("Data used:")
-        st.markdown("- user's collection for year of publishing, and information whether the item is knows "
-                    "for the user (xmlapi2/collection)")
-        st.markdown("- Note: technically it is possible that user can have plays documented to an item that is "
-                    "not part of his / her collection")
-        st.markdown("- Note: BGG does not have publication year info on all items. The missing data is filled with 0.")
-        st.markdown("- Detailed board game info for board game type to separate board games and extensions"
-                    " (xmlapi2/thing)")
+        df = pd.read_csv("stat_desc.csv", index_col="topic")
+        st.write(df.at["games_by_publication", "description"])
+    # with st.expander("See explanation of data"):
+    #     st.write("Chart represents all items that the user has played with. Sorting the items based on their "
+    #              "publication year. Any games - that was published before the 'starting year' selected - are "
+    #              "added to the first year.")
+    #     st.write("Data used:")
+    #     st.markdown("- user's collection for year of publishing, and information whether the item is knows "
+    #                 "for the user (xmlapi2/collection)")
+    #     st.markdown("- Note: technically it is possible that user can have plays documented to an item that is "
+    #                 "not part of his / her collection")
+    #     st.markdown("- Note: BGG does not have publication year info on all items. The missing data is filled with 0.")
+    #     st.markdown("- Detailed board game info for board game type to separate board games and extensions"
+    #                 " (xmlapi2/thing)")
 
 
 def plays_by_publication(df_plays: pd.DataFrame, df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:

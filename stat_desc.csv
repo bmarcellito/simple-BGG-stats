@@ -1,0 +1,11 @@
+,topic,description
+0,basics,
+1,favourite_games,
+2,favourite_designers,
+3,stat_not_played,
+4,games_by_publication,"Chart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that was published before the 'starting year' selected - are added to the first year.
+Data used:
+- user's collection for year of publishing, and information whether the item is knows for the user (xmlapi2/collection)
+- Note: technically it is possible that user can have plays documented to an item that is not part of his / her collection
+- Note: BGG does not have publication year info on all items. The missing data is filled with 0.
+- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)"
