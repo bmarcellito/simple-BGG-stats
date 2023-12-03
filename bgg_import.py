@@ -1,3 +1,5 @@
+from my_logger import getlogger
+
 import re
 import time
 from datetime import datetime
@@ -24,28 +26,46 @@ def import_xml_from_bgg(link: str) -> str:
     return response.content.decode(encoding="utf-8")
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def check_user(_service: googleapiclient.discovery.Resource, username: str, path: str) -> bool:
+    st.caption("Checking user on BGG...")
     result = import_xml_from_bgg(f'collection?username={username}')
     try:
         df = pd.read_xml(StringIO(result))
     except ValueError:
-        st.write(f'No user found on bgg with this username: {username}')
+        st.caption(f'No user found on bgg with this username: {username}')
         return False
-
     if "message" in df.columns:
-        st.write(f'No user found on bgg with this username: {username}')
+        st.caption(f'No user found on bgg with this username: {username}')
         return False
 
     q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
     items = gdrive.search(_service, query=q)
     if not items:
         gdrive.create_folder(_service, parent_folder=path, folder_name=username)
-
+    st.caption("User found on BGG!")
     return True
 
 
-@st.cache_data(ttl=86400)
+def delete_user_info(_service: googleapiclient.discovery.Resource, username: str) -> None:
+    logger = getlogger()
+    logger.info(f'User data deleted. Username: {username}')
+
+    q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
+    folder_items = gdrive.search(_service, query=q)
+    if not folder_items:
+        return None
+    else:
+        items = gdrive.search(_service, query=f'"{folder_items[0]["id"]}" in parents')
+
+    if not items:
+        return None
+    else:
+        for item in items:
+            gdrive.delete_file(_service, item["id"])
+    return None
+
+@st.cache_data(show_spinner=False)
 def current_ranking(_service: googleapiclient.discovery.Resource, path_processed: str) -> pd.DataFrame:
     """
     There is no API on BGG for downloading all games and their current ranking
@@ -82,12 +102,13 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_processed
 
     if (not data_source) and data_processed:
         df = gdrive.load(_service, items_processed[0]["id"])
-        st.caption(f'Importing finished. Number of games: {len(df)}')
+        st.caption(f'Importing finished. Number of items: {len(df)}')
         return df
 
     if data_source and data_processed:
         if process_last_modified > source_last_modified:
             df = gdrive.load(_service, items_processed[0]["id"])
+            st.caption(f'Importing finished. Number of items: {len(df)}')
             return df
 
     df = gdrive.load(_service, items_source[0]["id"])
@@ -95,17 +116,12 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_processed
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
     df.rename(columns={"id": "objectid"}, inplace=True)
 
-    gdrive.save(_service, path_processed, filename_processed, df)
-    # UPDATED
-    # if data_processed:
-    #     gdrive_overwrite_file(_service, file_name=items_processed[0]["id"], df=df)
-    # else:
-    #     gdrive_save_file(_service, parent_folder=path_processed, file_name="current_ranking.csv", df=df)
+    gdrive.save(_service, path_processed, filename_processed, df, False)
     st.caption(f'Importing finished. Number of games: {len(df)}')
     return df
 
 
-@st.cache_data(ttl=86400)
+@st.cache_data(show_spinner=False)
 def historic_ranking(_service: googleapiclient.discovery.Resource, path_source: str, path_processed: str,
                      game_list: pd.DataFrame) -> pd.DataFrame:
     """
@@ -155,8 +171,6 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_source: 
         st.caption(f'Importing finished. Number of sampling: {len(existing_imports)}')
         return df_historical
 
-    # TODO new game appears in  a new historic file - what will happen?
-
     # each iteration loads a file, and adds the ranking information from it as a column to the historical dataframe
     progress_text = "Importing new historical game rankings file..."
     step_all = len(files_to_import)+1
@@ -192,14 +206,14 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_source: 
 
     # TODO: games with multiple ID issue
 
-    gdrive.save(_service, path_processed, filename, df_historical)
+    gdrive.save(_service, path_processed, filename, df_historical, False)
 
     my_bar.empty()
     st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
     return df_historical
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: str,
                   df_new: pd.DataFrame):
     if "user_rating" in df_new.columns.values:
@@ -318,13 +332,14 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
         my_bar.progress(step*100 // step_all, text=progress_text)
     my_bar.empty()
 
-    gdrive.save(_service, path_processed, filename_game, df_game_info)
-    gdrive.save(_service, path_processed, filename_playnum, df_playnumdb)
+    gdrive.save(_service, path_processed, filename_game, df_game_info, True)
+    gdrive.save(_service, path_processed, filename_playnum, df_playnumdb, True)
 
     st.caption(f'Importing finished. {len(games_to_import_list)} new game information saved.')
     return df_game_info, df_playnumdb
 
 
+@st.cache_data(show_spinner=False)
 def import_player_number(df_playnumdb: pd.DataFrame, result: str, objectid: str) -> pd.DataFrame:
     df_playnum = pd.DataFrame(columns=["objectid", "numplayers", "best", "recommended", "not recommended"])
 
@@ -364,7 +379,7 @@ def import_player_number(df_playnumdb: pd.DataFrame, result: str, objectid: str)
     return df_playnum
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def user_collection(_service: googleapiclient.discovery.Resource, username: str,
                     refresh: int) -> pd.DataFrame:
     """
@@ -422,13 +437,13 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
     q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
     items = gdrive.search(_service, query=q)
     folder_id = items[0]["id"]
-    gdrive.save(_service, folder_id, filename, df)
+    gdrive.save(_service, folder_id, filename, df, True)
 
     st.caption(f'Collection imported. Number of games + expansions known: {len(df)}')
     return df
 
 
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def user_plays(_service: googleapiclient.discovery.Resource, username: str,
                refresh: int) -> pd.DataFrame:
     """
@@ -503,7 +518,7 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str,
     q = f'mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
     items = gdrive.search(_service, query=q)
     folder_id = items[0]["id"]
-    gdrive.save(_service, folder_id, filename, df_play)
+    gdrive.save(_service, folder_id, filename, df_play, True)
 
     step += 1
     my_bar.progress(step*100 // step_all, text=progress_text)

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 import re
 
+
 # @st.cache_data(ttl=86400)
 def add_description(title: str) -> None:
     with st.expander("See explanation of data"):
@@ -19,13 +20,17 @@ def add_description(title: str) -> None:
 def basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_info: pd.DataFrame) -> None:
     collection_merged = pd.merge(df_collection, df_game_info, how="left", on="objectid")
     plays_merged = pd.merge(df_plays, df_game_info, how="left", on="objectid")
-
     collection_all = len(collection_merged)
     collection_games = len(collection_merged.query('type == "boardgame"'))
     collection_exp = len(collection_merged.query('type == "boardgameexpansion"'))
     owned_all = df_collection["own"].loc[df_collection["own"] == 1].count()
     owned_games = len(collection_merged.query('(type == "boardgame") and (own == 1)'))
     owned_exp = len(collection_merged.query('(type == "boardgameexpansion") and (own == 1)'))
+    plays_all = df_plays["quantity"].sum()
+    plays_games = plays_merged.query('type == "boardgame"')
+    plays_games = plays_games["quantity"].sum()
+    plays_exp = plays_merged.query('type == "boardgameexpansion"')
+    plays_exp = plays_exp["quantity"].sum()
     tried_all = df_plays["objectid"].nunique()
     tried_games = plays_merged.query('type == "boardgame"')
     tried_games = tried_games["objectid"].nunique()
@@ -37,16 +42,16 @@ def basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_info: pd
     more_all = df_collection["numplays"].loc[df_collection["numplays"] > 1].count()
     more_games = len(collection_merged.query('(type == "boardgame") and (numplays > 1)'))
     more_exp = len(collection_merged.query('(type == "boardgameexpansion") and (numplays > 1)'))
-    data = {"Name": ["Size of BGG collection", "Number of items owned", "Number of unique items tried",
-                     "Number of items rated by the user", "Played more than once"],
-            "Games": [collection_games, owned_games, tried_games, rated_games, more_games],
-            "Expansions": [collection_exp, owned_exp, tried_exp, rated_exp, more_exp],
-            "All": [collection_all, owned_all, tried_all, rated_all, more_all]}
-    df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=6, step=1))
+    data = {"Name": ["Size of BGG collection", "Number of items owned", "Number of recorded plays",
+                     "Number of unique items tried", "Played more than once",
+                     "Number of items rated by the user"],
+            "Games": [collection_games, owned_games, plays_games, tried_games, more_games, rated_games],
+            "Expansions": [collection_exp, owned_exp, plays_exp, tried_exp, more_exp, rated_exp],
+            "All": [collection_all, owned_all, plays_all, tried_all, more_all, rated_all]}
+    df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=7, step=1))
     st.dataframe(df_basic, use_container_width=True)
 
     st.write(f'First play recorded on: {df_plays.date.min()}')
-    st.write(f'Number of plays recorded: {df_collection["numplays"].sum()}')
     st.write(f'Mean of plays with a specific game: {df_collection["numplays"].mean():.2f}')
     st.write(f'Median of plays with a specific game: {df_collection["numplays"].median()}')
 
@@ -184,7 +189,8 @@ def games_by_publication(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
     cut_year = st.slider('Which year to start from?', 1950, 2020, 2000)
 
     played = df_collection.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
-    played = played[["name", "yearpublished", "own", "type", "numplays"]].loc[df_collection["numplays"] != 0].reset_index()
+    played = (played[["name", "yearpublished", "own", "type", "numplays"]].loc[df_collection["numplays"] != 0].
+              reset_index())
     under_cut = len(played.loc[df_collection["yearpublished"] <= cut_year])
     played["yearpublished"] = played["yearpublished"].clip(lower=cut_year)
 
@@ -518,18 +524,24 @@ def by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_infod
     df_rating.rename(columns={"user_rating": "User's rating", "rating_average": "Average rating on BGG",
                               "numplays": "Number of plays"}, inplace=True)
     df_rating = df_rating.sort_values(by="Number of plays", ascending=False)
+    df_rating["color_data"] = "Data"
 
     max_size = max(df_rating["Number of plays"].max() // 100, 1)
-    df_rating["color_data"] = "Data"
-    for i in range(1000):
-        new_row = pd.DataFrame({"name": "", "Number of plays": max_size, "User's rating": i/100,
-                                "Average rating on BGG": i/100, "color_data": "Equal values line"},
+    if max_size == 1:
+        circle_size = max_size*10
+    else:
+        circle_size = max_size*4
+    print(max_size)
+    step = max_size*5
+    for i in range(step*10):
+        new_row = pd.DataFrame({"name": "", "Number of plays": max_size, "User's rating": i/step,
+                                "Average rating on BGG": i/step, "color_data": "Equal values line"},
                                index=[len(df_rating)])
         df_rating = pd.concat([df_rating, new_row])
 
     fig = px.scatter(df_rating, x="Average rating on BGG", y="User's rating", size="Number of plays",
                      hover_name="name", color="color_data", color_discrete_sequence=["#000000", "#FB0D0D"],
-                     size_max=50)
+                     size_max=circle_size)
     fig.update_xaxes(showgrid=True)
     fig.update_yaxes(showgrid=True)
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)

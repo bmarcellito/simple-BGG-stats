@@ -1,32 +1,26 @@
-# dataframes
+from datetime import datetime, timedelta
 
-# reading historical scraped files
-
-# WEB interface
 import streamlit as st
 
-# google drive
-
+from my_logger import getlogger
 import bgg_stats
 import gdrive
 import bgg_import
 
 
 def main():
-    # TODO schema for TOP list
     gdrive_original = st.secrets["gdrive_original"]
     gdrive_processed = st.secrets["gdrive_processed"]
     gdrive_user = st.secrets["gdrive_user"]
-    REFRESH_USER_DATA = 3  # for importing user data - number represents days
+    refresh_user_data = 5  # for importing user data - number represents days
 
-    if 'sidebar_state' not in st.session_state:
-        st.session_state.sidebar_state = 'expanded'
-    st.set_page_config(initial_sidebar_state=st.session_state.sidebar_state, layout="wide")
-
-    my_service = gdrive.authenticate()
-
+    st.set_page_config(layout="wide")
     if "user_exist" not in st.session_state:
         st.session_state.user_exist = False
+    if "refresh_disabled" not in st.session_state:
+        st.session_state.refresh_disabled = True
+    logger = getlogger()
+    my_service = gdrive.authenticate()
 
     with st.sidebar:
         st.title("BGG statistics")
@@ -34,38 +28,43 @@ def main():
         with st.form("my_form"):
             bgg_username = st.text_input('Enter a BGG username', key="input_username")
             submitted = st.form_submit_button("Submit")
+
+        # if st.session_state.user_exist:
+        st.caption(f'User data is cached for {refresh_user_data} days. Push the button to refresh it')
+        if st.button(label="Refresh selected user's data", disabled=st.session_state.refresh_disabled):
+            bgg_import.delete_user_info(my_service, bgg_username)
+            bgg_import.user_collection.clear()
+            bgg_import.user_plays.clear()
+            logger.info("user refresh button pressed")
+
+        with st.status("Importing data...", expanded=True) as status:
             if submitted:
+                logger.info(f'Username entered: {bgg_username}')
                 st.session_state.stat_selection = "Basic statistics"
                 st.session_state.user_exist = bgg_import.check_user(my_service, bgg_username, gdrive_user)
-                if (not st.session_state.user_exist) and ('handler' in st.session_state):
-                    del st.session_state["handler"]
+                if not st.session_state.user_exist:
+                    status.update(label="No valid user!", state="error", expanded=False)
+                    st.session_state.refresh_disabled = True
+                    st.rerun()
+                else:
+                    st.session_state.refresh_disabled = False
+                    st.rerun()
 
-        st.caption("User data is cached for 3 days. Push the button if you want to have fresh data")
-        if st.button(label="Refresh selected user's data"):
-            bgg_import.user_collection(my_service, bgg_username, 0)
-            bgg_import.user_plays(my_service, bgg_username, 0)
-
-        if submitted:
-            st.session_state.stat_selection = "Basic statistics"
-            st.session_state.user_exist = bgg_import.check_user(my_service, bgg_username, gdrive_user)
-            if (not st.session_state.user_exist) and ('handler' in st.session_state):
-                del st.session_state["handler"]
-
-        if st.session_state.user_exist:
-            placeholder = st.empty()
-            with placeholder.container():
-                st.subheader("Importing...")
-                # my_: data that is user specific
-                my_collection = bgg_import.user_collection(my_service, bgg_username, REFRESH_USER_DATA)
-                my_plays = bgg_import.user_plays(my_service, bgg_username, REFRESH_USER_DATA)
-                # global_: data independent from user
+            if st.session_state.user_exist:
+                my_collection = bgg_import.user_collection(my_service, bgg_username, refresh_user_data)
+                my_plays = bgg_import.user_plays(my_service, bgg_username, refresh_user_data)
                 bgg_import.build_game_db(my_service, gdrive_processed, my_collection)
                 global_game_infodb, global_play_numdb = bgg_import.build_game_db(my_service, gdrive_processed, my_plays)
-                global_fresh_ranking = bgg_import.current_ranking(my_service, gdrive_processed)
-                global_historic_rankings = bgg_import.historic_ranking(my_service, gdrive_original, gdrive_processed,
-                                                                       global_fresh_ranking)
-                st.write("IMPORTING / LOADING has finished!\n")
-            placeholder.empty()
+                if "last_imported" not in st.session_state:
+                    st.session_state.last_imported = datetime.now()-timedelta(days=1)
+                if datetime.now() > st.session_state.last_imported:
+                    bgg_import.current_ranking.clear()
+                    bgg_import.historic_ranking.clear()
+                    global_fresh_ranking = bgg_import.current_ranking(my_service, gdrive_processed)
+                    global_historic_rankings = bgg_import.historic_ranking(my_service, gdrive_original,
+                                                                           gdrive_processed, global_fresh_ranking)
+                    st.session_state.last_imported = datetime.now()+timedelta(days=1)
+                status.update(label="Importing complete!", state="complete", expanded=False)
 
     if st.session_state.user_exist:
         if not (my_collection.empty or my_plays.empty):
@@ -79,7 +78,7 @@ def main():
             match option:
                 case "Basic statistics":
                     bgg_stats.basics(my_collection, my_plays, global_game_infodb)
-                    #bgg_stats.plays_by_publication(my_plays, my_collection, global_game_infodb)
+                    # bgg_stats.plays_by_publication(my_plays, my_collection, global_game_infodb)
                     # bgg_stats.stat_not_played(my_collection)
                 case "User\'s collection":
                     bgg_stats.collection(my_collection, global_game_infodb, global_play_numdb)
@@ -116,3 +115,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # csak különbségek átadása mentésre!
+    # TODO schema for TOP list
+    # TODO new game appears in  a new historic file - what will happen?

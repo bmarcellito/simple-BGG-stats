@@ -1,5 +1,7 @@
+from my_logger import getlogger
+
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import googleapiclient.discovery
 import pandas as pd
@@ -68,8 +70,8 @@ def search(service: googleapiclient.discovery.Resource, query: str):
     return results.get('files', [])
 
 
-def save(service: googleapiclient.discovery.Resource,
-         parent_folder: str, filename: str, df: pd.DataFrame) -> str:
+def save(service: googleapiclient.discovery.Resource, parent_folder: str,
+         filename: str, df: pd.DataFrame, concat: bool) -> str:
     def create_token() -> str:
         # create token
         token = str(datetime.now())
@@ -92,6 +94,10 @@ def save(service: googleapiclient.discovery.Resource,
                 if first_token_time > item["modifiedTime"]:
                     first_token_id = item["id"]
                     first_token_time = item["modifiedTime"]
+                last_imported = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                if datetime.now()-last_imported > timedelta(seconds=15):
+                    logger.info(f'Found an old token!')
+                    delete_file(service, item["id"])
             if first_token_id == token_id:
                 break
         # ready to go
@@ -100,20 +106,26 @@ def save(service: googleapiclient.discovery.Resource,
     def delete_token(token: str) -> None:
         delete_file(service, token)
 
+    logger = getlogger()
     items = search(service, f'name contains "{filename}"')
     if not items:
         # create new file
         file_id = save_new_file(service, parent_folder, filename, df)
+        logger.info(f'File saved: {filename}')
     else:
         # overwrite existing file
         existing_file_id = items[0]["id"]
         my_token = create_token()
         df_existing = load(service, items[0]["id"])
-        df_merged = pd.concat([df_existing, df], ignore_index=True)
-        df_merged = df_merged.drop_duplicates()
+        if concat:
+            df_merged = pd.concat([df_existing, df], ignore_index=True)
+            df_merged = df_merged.drop_duplicates()
+        else:
+            df_merged = df_existing
         delete_file(service, existing_file_id)
         file_id = save_new_file(service, parent_folder, filename, df_merged)
         delete_token(my_token)
+        logger.info(f'File overwritten: {filename}')
     return file_id
 
 
