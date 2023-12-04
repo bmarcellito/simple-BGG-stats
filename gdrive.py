@@ -94,7 +94,6 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
                         logger.info(f'Found an old token!')
 
         # waits until this is the first token in time (wait till other threads finish)
-        number_of_checks = 1
         while 0 == 0:
             items = search(service, query=f'"{session_folder_id}" in parents')
             first_token_id = items[0]["id"]
@@ -105,7 +104,6 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
                     first_token_time = item["modifiedTime"]
             if first_token_id == token_id:
                 break
-            number_of_checks += 1
         # ready to go
         return token_id
 
