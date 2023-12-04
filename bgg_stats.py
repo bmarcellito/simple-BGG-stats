@@ -55,13 +55,8 @@ def basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_info: pd
     st.write(f'Mean of plays with a specific game: {df_collection["numplays"].mean():.2f}')
     st.write(f'Median of plays with a specific game: {df_collection["numplays"].median()}')
 
-    with st.expander("See explanation of data"):
-        st.write("Data used:")
-        st.markdown("- user's collection plays for size of collection, ownership of items, ratings by the user "
-                    "(xmlapi2/collection)")
-        st.markdown("- user's documented plays for items tried, and other play related statistics (xmlapi2/plays)")
-        st.markdown("- Detailed board game info for board game type to separate board games and extensions "
-                    "(xmlapi2/thing)")
+    add_description("basics")
+    return None
 
 
 def favourite_games(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
@@ -450,12 +445,14 @@ def historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     match method:
         case "Basic":
             st.line_chart(df_result, x="Date", height=600)
-            st.write("Number of games played from the BGG TOP lists:")
-            st.dataframe(df_result, hide_index=True)
+            with st.expander("Numerical presentation"):
+                st.dataframe(df_result, hide_index=True, use_container_width=True)
         case "Cumulative":
             st.line_chart(df_result_cum, x="Date", height=600)
-            st.write("\nNumber of games played from the BGG TOP lists (cumulative):")
-            st.dataframe(df_result_cum, hide_index=True)
+            with st.expander("Numerical presentation"):
+                st.dataframe(df_result_cum, hide_index=True, use_container_width=True)
+
+    add_description("historic_ranking")
     return None
 
 
@@ -531,7 +528,6 @@ def by_rating(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_infod
         circle_size = max_size*10
     else:
         circle_size = max_size*4
-    print(max_size)
     step = max_size*5
     for i in range(step*10):
         new_row = pd.DataFrame({"name": "", "Number of plays": max_size, "User's rating": i/step,

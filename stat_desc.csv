@@ -1,5 +1,11 @@
 ,topic,description
-0,basics,
+0,basics,"Overall information about the user is available on the BoardGameGeek website (BGG). 
+Important information: most of the information documented on BGG is public, which is why this website can present you with these statistics!
+
+Data used:
+- user's collection plays for the size of the collection, ownership of items, and ratings by the user (xmlapi2/collection)
+- user's documented plays for items tried, and other play-related statistics (xmlapi2/plays)
+- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)"
 1,favourite_games,
 2,favourite_designers,
 3,stat_not_played,
@@ -33,7 +39,12 @@ Description of columns:
 Data used
 - user's documented plays for Name and Number of plays (xmlapi2/plays)
 - Note: BGG lets you add quantity to a recorded play (like you played that game 3 times in a row, and you create one play for all of this. These statistics would count these 3 plays."
-8,historic_ranking,
+8,historic_ranking,"BGG maintains multiple rankings. The most important is the 'Overall'.  This statistic shows that at specific moments in time how many games did the user know (documented a play with that game for an earlier date) from the 'Overall' BGG rank list valid at that time. Note: BGG's Overall rank list has only board games, no expansions listed.
+
+Data used:
+- user's documented plays for understanding which games are known at a specific time (xmlapi2/plays)
+- On the BGG website you can access the 'Overall' ranking information, including how it has changed historically in the past. However, there is no operational API to get this information (as of late 2023). An excited person collected this information somehow and published it, available for everyone. There is a separate CSV file for each specific date, containing the actual ranking information (source: https://github.com/beefsack/bgg-ranking-historicals)
+- Note: these ranking CSV files are available only from 12th October 2016, so no earlier statistics are possible."
 9,by_weight,"Each item on BGG has a number called 'Weight'. It shows how complex the game is. BGG users can rate every item on the website. BGG creates multiple averages, here the 'Average rating' is used (calculated by BGG). The size of the plots shows how many times the user played with it.
 - Note: more serious players prefer games with higher weight. Also, more serious players take the energy to document plays, maintain a collection, and rate games on BGG. As a result, games with higher weight usually have a higher rating.
 
