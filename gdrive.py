@@ -113,7 +113,8 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         delete_file(service, token)
 
     logger = getlogger()
-    items = search(service, f'name contains "{filename}"')
+    q = (f'"{parent_folder}" in parents and name contains "{filename}"')
+    items = search(service, q)
     if not items:
         # create new file
         file_id = save_new_file(service, parent_folder, filename, df)

@@ -22,8 +22,13 @@ def main():
     if "refresh_disabled" not in st.session_state:
         st.session_state.refresh_disabled = True
     my_service = gdrive.authenticate()
-    st.markdown('<style>scrollbar { width: 10px;}</style>', unsafe_allow_html=True)
-
+    st.markdown("""
+                    <html><head><style>
+                            ::-webkit-scrollbar {
+                                width: 14px;
+                                height: 14px;}
+                    </style></head><body></body></html>
+                """, unsafe_allow_html=True)
     with (st.sidebar):
         st.title("BGG statistics")
 
