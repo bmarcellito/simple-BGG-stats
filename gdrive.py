@@ -112,7 +112,7 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
     def delete_token(token: str) -> None:
         delete_file(service, token)
 
-    logger = getlogger()
+    logger, syslog = getlogger()
     q = (f'"{parent_folder}" in parents and name contains "{filename}"')
     items = search(service, q)
     if not items:
@@ -133,6 +133,8 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         file_id = save_new_file(service, parent_folder, filename, df_merged)
         delete_token(my_token)
         logger.info(f'File overwritten: {filename}')
+        logger.removeHandler(syslog)
+        syslog.close()
     return file_id
 
 
@@ -145,8 +147,10 @@ def load(service, file_name: str) -> pd.DataFrame:
         while done is False:
             status, done = downloader.next_chunk()
     except HttpError as error:
-        logger = getlogger()
+        logger, syslog = getlogger()
         logger.error(f'While loading file, an error occurred: {error}')
+        logger.removeHandler(syslog)
+        syslog.close()
         file = None
     source = io.StringIO(file.getvalue().decode(encoding='utf-8', errors='ignore'))
     df = pd.read_csv(source)

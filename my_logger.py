@@ -21,4 +21,4 @@ def getlogger():
     logger = logging.getLogger()
     logger.addHandler(syslog)
     logger.setLevel(logging.INFO)
-    return logger
+    return logger, syslog

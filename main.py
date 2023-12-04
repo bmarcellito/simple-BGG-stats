@@ -15,10 +15,12 @@ def main():
     refresh_user_data = 5  # for importing user data - number represents days
 
     st.set_page_config(layout="wide")
-    logger = getlogger()
     if "user_exist" not in st.session_state:
         st.session_state.user_exist = False
+        logger, syslog = getlogger()
         logger.info(f'New session started!')
+        logger.removeHandler(syslog)
+        syslog.close()
     if "refresh_disabled" not in st.session_state:
         st.session_state.refresh_disabled = True
     my_service = gdrive.authenticate()
@@ -42,12 +44,14 @@ def main():
             bgg_import.delete_user_info(my_service, bgg_username)
             bgg_import.user_collection.clear()
             bgg_import.user_plays.clear()
-            logger.info("user refresh button pressed")
             submitted = True
 
         if submitted:
             with st.status("Importing data...", expanded=True) as status:
+                logger, syslog = getlogger()
                 logger.info(f'Username entered: {bgg_username}')
+                logger.removeHandler(syslog)
+                syslog.close()
                 st.session_state.stat_selection = "Basic statistics"
                 st.session_state.user_exist = bgg_import.check_user(my_service, bgg_username, gdrive_user)
                 if not st.session_state.user_exist:

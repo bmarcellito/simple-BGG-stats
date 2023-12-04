@@ -28,19 +28,15 @@ def import_xml_from_bgg(link: str) -> str:
 
 @st.cache_data(show_spinner=False)
 def check_user(_service: googleapiclient.discovery.Resource, username: str, user_folder: str) -> bool:
-    logger = getlogger()
-    logger.info(f'Checking {username} on BGG')
     st.caption("Checking user on BGG...")
     result = import_xml_from_bgg(f'collection?username={username}')
     try:
         df = pd.read_xml(StringIO(result))
     except ValueError:
         st.caption(f'No user found on bgg with this username: {username}')
-        logger.info(f'Not found on BGG: {username}')
         return False
     if "message" in df.columns:
         st.caption(f'No user found on bgg with this username: {username}')
-        logger.info(f'Not found on BGG: {username}')
         return False
 
     q = (f'"{user_folder}" in parents and mimeType = "application/vnd.google-apps.folder" '
@@ -49,12 +45,11 @@ def check_user(_service: googleapiclient.discovery.Resource, username: str, user
     if not items:
         gdrive.create_folder(_service, parent_folder=user_folder, folder_name=username)
     st.caption("User found on BGG!")
-    logger.info(f'{username} found on BGG')
     return True
 
 
 def delete_user_info(_service: googleapiclient.discovery.Resource, username: str) -> None:
-    logger = getlogger()
+    logger, syslog = getlogger()
     logger.info(f'User to delete: {username}')
 
     general_user_folder_id = st.secrets["gdrive_user"]
@@ -63,17 +58,23 @@ def delete_user_info(_service: googleapiclient.discovery.Resource, username: str
     folder_items = gdrive.search(_service, query=q)
     if not folder_items:
         logger.info(f'No folder to user: {username}, so no data to delete')
+        logger.removeHandler(syslog)
+        syslog.close()
         return None
 
     items = gdrive.search(_service, query=f'"{folder_items[0]["id"]}" in parents')
     if not items:
         logger.info(f'No data to delete: {username}')
+        logger.removeHandler(syslog)
+        syslog.close()
         return None
     else:
         for item in items:
             gdrive.delete_file(_service, item["id"])
 
     logger.info(f'Data deleted: {username}')
+    logger.removeHandler(syslog)
+    syslog.close()
     return None
 
 
@@ -91,7 +92,7 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
     :param path_processed: where should the processed data be saved
     :return: imported data in dataframe
     """
-    logger = getlogger()
+    logger, syslog = getlogger()
     logger.info(f'importing current ranking')
     st.caption("Importing list of board games...")
     filename_source = "boardgames_list.csv"
@@ -122,12 +123,16 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
     if (not data_source) and (not data_processed):
         st.caption("Missing current ranking information!")
         logger.error(f'Current ranking info: No original & no processed data!')
+        logger.removeHandler(syslog)
+        syslog.close()
         return pd.DataFrame()
 
     if (not data_source) and data_processed:
         df = gdrive.load(_service, items_processed[0]["id"])
         st.caption(f'Importing finished. Number of items: {len(df)}')
         logger.info(f'Processed current ranking data loaded. No original data founded')
+        logger.removeHandler(syslog)
+        syslog.close()
         return df
 
     if data_source and data_processed:
@@ -135,6 +140,8 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
             df = gdrive.load(_service, items_processed[0]["id"])
             st.caption(f'Importing finished. Number of items: {len(df)}')
             logger.info(f'Processed current ranking data loaded. No new original data founded')
+            logger.removeHandler(syslog)
+            syslog.close()
             return df
 
     df = gdrive.load(_service, items_source[0]["id"])
@@ -145,6 +152,8 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
     gdrive.save(_service, path_processed, filename_processed, df, False)
     st.caption(f'Importing finished. Number of games: {len(df)}')
     logger.info(f'Found new current ranking data. It is imported')
+    logger.removeHandler(syslog)
+    syslog.close()
     return df
 
 
@@ -169,7 +178,7 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     def sort_files(sort_by):
         return sort_by["name"]
 
-    logger = getlogger()
+    logger, syslog = getlogger()
     logger.info(f'Importing historical ranking')
     st.caption("Importing historical game rankings")
     filename = "historical_ranking.csv"
@@ -195,9 +204,10 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     items = gdrive.search(_service, query=f'"{path_original}" in parents')
     if not items:
         logger.info(f'Historical ranking imported. No historical original data found')
+        logger.removeHandler(syslog)
+        syslog.close()
         return df_historical
     for item in items:
-        logger.info("historical original data found")
         if re.match(r'\d{4}-\d{2}-\d{2}', item['name']):
             name = item["name"]
             name_len = len(name)
@@ -212,8 +222,11 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
         else:
             st.caption(f'Importing finished. Number of sampling: {len(existing_imports)}')
             logger.info(f'Historical ranking imported. No new data')
+        logger.removeHandler(syslog)
+        syslog.close()
         return df_historical
 
+    logger.info("historical original data found")
     # each iteration loads a file, and adds the ranking information from it as a column to the historical dataframe
     progress_text = "Importing new historical game rankings file..."
     step_all = len(files_to_import)+1
@@ -254,13 +267,15 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     my_bar.empty()
     st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
     logger.info(f'New historical ranking found and imported.')
+    logger.removeHandler(syslog)
+    syslog.close()
     return df_historical
 
 
 # noinspection PyRedundantParentheses
 def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: str,
                   df_new: pd.DataFrame):
-    logger = getlogger()
+    logger, syslog = getlogger()
     logger.info(f'Getting additional item info')
 
     if "user_rating" in df_new.columns.values:
@@ -290,6 +305,8 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
     # first we loaded the existing files, so we can still return data if the request is empty
     if df_new.empty:
         logger.info(f'Request for additional item info sent empty datafile. No new info items')
+        logger.removeHandler(syslog)
+        syslog.close()
         return df_game_info, df_playnumdb
 
     possible_new_items = df_new.groupby("objectid").count().reset_index()
@@ -304,6 +321,8 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
         games_to_import_list = possible_new_items_list
     if not games_to_import_list:
         logger.info(f'Item info loaded. No new item info needed')
+        logger.removeHandler(syslog)
+        syslog.close()
         return df_game_info, df_playnumdb
 
     progress_text = "Reading game information..."
@@ -389,6 +408,8 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
 
     st.caption(f'Importing finished. {len(games_to_import_list)} new game information saved.')
     logger.info(f'New item info imported')
+    logger.removeHandler(syslog)
+    syslog.close()
     return df_game_info, df_playnumdb
 
 
@@ -453,7 +474,7 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    logger = getlogger()
+    logger, syslog = getlogger()
     logger.info(f'Getting collection of {username}')
     st.caption(f'Importing collection of {username}...')
     filename = f'collection_{username}.csv'
@@ -474,9 +495,13 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
             if how_fresh.days < refresh:
                 st.caption(f'Importing finished. Number of games in collection: {len(df)}')
                 logger.info(f'Collection of {username} loaded. No importing as it is fresh enough')
+                logger.removeHandler(syslog)
+                syslog.close()
                 return df
     else:
         logger.error(f'{username} missing the personal folder when trying to save collection')
+        logger.removeHandler(syslog)
+        syslog.close()
         return pd.DataFrame()
 
     result = import_xml_from_bgg(f'collection?username={username}&stats=1')
@@ -504,6 +529,8 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
 
     st.caption(f'Collection imported. Number of games + expansions known: {len(df)}')
     logger.info(f'Collection of {username} imported')
+    logger.removeHandler(syslog)
+    syslog.close()
     return df
 
 
@@ -520,7 +547,7 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    logger = getlogger()
+    logger, syslog = getlogger()
     logger.info(f'Getting plays of {username}')
     st.caption(f'Importing plays of {username}...')
     df = pd.DataFrame()
@@ -542,10 +569,14 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
             if how_fresh.days < refresh:
                 st.caption(f'Importing finished. Number of plays: {len(df)}')
                 logger.info(f'Plays of {username} loaded. It is fresh enough, no import')
+                logger.removeHandler(syslog)
+                syslog.close()
                 return df
     else:
         logger = getlogger()
         logger.error(f'{username} missing the personal folder when trying to save plays')
+        logger.removeHandler(syslog)
+        syslog.close()
         return pd.DataFrame()
 
     # read the first page of play info from BGG
@@ -559,6 +590,8 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
     if total == 0:
         st.caption(f'User {username} haven\'t recorded any plays yet.')
         logger.info(f'User {username} haven\'t recorded any plays yet.')
+        logger.removeHandler(syslog)
+        syslog.close()
         return df
     page_no, rest = divmod(total, 100)
     if rest > 0:
@@ -603,4 +636,6 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
     my_bar.empty()
     st.caption(f'Importing finished. Number of plays: {len(df_play)}')
     logger.info(f'Plays of {username} imported')
+    logger.removeHandler(syslog)
+    syslog.close()
     return df_play
