@@ -29,7 +29,7 @@ def authenticate() -> googleapiclient.discovery.Resource:
         "universe_domain": "googleapis.com"
     }
     creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
-    service = build('drive', 'v3', credentials=creds)
+    service = build('drive', 'v3', credentials=creds, cache_discovery=False)
     return service
 
 
@@ -76,30 +76,36 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         # create token
         token = str(datetime.now())
         df_session = pd.DataFrame(["test"])
-        q = f'mimeType = "application/vnd.google-apps.folder" and name contains "session_id"'
-        folder_items = search(service, q)
-        session_folder_id = folder_items[0]["id"]
+        session_folder_id = st.secrets["gdrive_session"]
         token_id = save_new_file(service, parent_folder=session_folder_id, file_name=token, df=df_session)
-        # waits until this is the first token (no other token is created earlier)
+
+        # delete old broken tokens
+        items = search(service, query=f'"{session_folder_id}" in parents and name contains "{token}"')
+        token_saving_time = datetime.strptime(items[0]["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+        items = search(service, query=f'"{session_folder_id}" in parents')
+        if items:
+            for item in items:
+                if item["id"] == token_id:
+                    continue
+                else:
+                    item_time = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    if token_saving_time-item_time > timedelta(seconds=15):
+                        delete_file(service, item["id"])
+                        logger.info(f'Found an old token!')
+
+        # waits until this is the first token in time (wait till other threads finish)
+        number_of_checks = 1
         while 0 == 0:
-            token_items = search(service, query=f'"{session_folder_id}" in parents')
-            if not token_items:
-                continue
-            first_token_id = ""
-            first_token_time = ""
-            for item in token_items:
-                if first_token_id == "":
-                    first_token_id = item["id"]
-                    first_token_time = item["modifiedTime"]
+            items = search(service, query=f'"{session_folder_id}" in parents')
+            first_token_id = items[0]["id"]
+            first_token_time = items[0]["modifiedTime"]
+            for item in items:
                 if first_token_time > item["modifiedTime"]:
                     first_token_id = item["id"]
                     first_token_time = item["modifiedTime"]
-                last_imported = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
-                if datetime.now()-last_imported > timedelta(seconds=15):
-                    logger.info(f'Found an old token!')
-                    delete_file(service, item["id"])
             if first_token_id == token_id:
                 break
+            number_of_checks += 1
         # ready to go
         return token_id
 
@@ -138,7 +144,8 @@ def load(service, file_name: str) -> pd.DataFrame:
         while done is False:
             status, done = downloader.next_chunk()
     except HttpError as error:
-        print(f"An error occurred: {error}")
+        logger = getlogger()
+        logger.error(f'While loading file, an error occurred: {error}')
         file = None
     source = io.StringIO(file.getvalue().decode(encoding='utf-8', errors='ignore'))
     df = pd.read_csv(source)
