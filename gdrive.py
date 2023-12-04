@@ -80,8 +80,8 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         token_id = save_new_file(service, parent_folder=session_folder_id, file_name=token, df=df_session)
 
         # delete old broken tokens
-        items = search(service, query=f'"{session_folder_id}" in parents and name contains "{token}"')
-        token_saving_time = datetime.strptime(items[0]["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+        file = service.files().get(fileId=token_id, fields='modifiedTime').execute()
+        token_saving_time = datetime.strptime(file.get('modifiedTime'), "%Y-%m-%dT%H:%M:%S.%fZ")
         items = search(service, query=f'"{session_folder_id}" in parents')
         if items:
             for item in items:
