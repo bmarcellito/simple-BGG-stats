@@ -96,6 +96,8 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         # waits until this is the first token in time (wait till other threads finish)
         while 0 == 0:
             items = search(service, query=f'"{session_folder_id}" in parents')
+            if not items:
+                continue
             first_token_id = items[0]["id"]
             first_token_time = items[0]["modifiedTime"]
             for item in items:
