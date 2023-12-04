@@ -1,4 +1,4 @@
-googleapiclient
+google-api-python-client
 streamlit
 lxml
 pandas~=2.1.3
