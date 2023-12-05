@@ -19,7 +19,7 @@ def main():
     if "user_exist" not in st.session_state:
         st.session_state.user_exist = False
         st.session_state.logger, st.session_state.syslog = getlogger(__name__)
-        st.session_state.logger.propagate = True
+        st.session_state.logger.propagate = False
         st.session_state.logger.setLevel(logging.INFO)
         st.session_state.logger.info(f'New session started!')
     if "refresh_disabled" not in st.session_state:

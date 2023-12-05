@@ -10,8 +10,12 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 
 import logging
-_logger = logging.getLogger(__name__)
-_logger.propagate = False
+import my_logger
+
+logging.basicConfig(level=logging.INFO)
+logger, syslog = my_logger.getlogger(__name__)
+logger.propagate = False
+logger.setLevel(logging.INFO)
 
 
 @st.cache_data
@@ -93,7 +97,7 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
                     item_time = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
                     if token_saving_time-item_time > timedelta(seconds=15):
                         delete_file(service, item["id"])
-                        _logger.info(f'Found an old token!')
+                        logger.info(f'Found an old token!')
 
         # waits until this is the first token in time (wait till other threads finish)
         while 0 == 0:
@@ -119,7 +123,7 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
     if not items:
         # create new file
         file_id = save_new_file(service, parent_folder, filename, df)
-        _logger.info(f'File saved: {filename}')
+        logger.info(f'File saved: {filename}')
     else:
         # overwrite existing file
         existing_file_id = items[0]["id"]
@@ -133,7 +137,7 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         delete_file(service, existing_file_id)
         file_id = save_new_file(service, parent_folder, filename, df_merged)
         delete_token(my_token)
-        _logger.info(f'File overwritten: {filename}')
+        logger.info(f'File overwritten: {filename}')
     return file_id
 
 
@@ -146,7 +150,7 @@ def load(service, file_name: str) -> pd.DataFrame:
         while done is False:
             status, done = downloader.next_chunk()
     except HttpError as error:
-        _logger.error(f'While loading file, an error occurred: {error}')
+        logger.error(f'While loading file, an error occurred: {error}')
         file = None
     source = io.StringIO(file.getvalue().decode(encoding='utf-8', errors='ignore'))
     df = pd.read_csv(source)
