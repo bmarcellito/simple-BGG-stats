@@ -12,7 +12,7 @@ import re
 # @st.cache_data(ttl=86400)
 def add_description(title: str) -> None:
     with st.expander("See explanation of data"):
-        df = pd.read_csv("stat_desc.csv", index_col="topic")
+        df = pd.read_csv("bgg_stats\\stat_desc.csv", index_col="topic")
         st.markdown(df.at[title, "description"])
     return None
 

@@ -9,6 +9,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 
+import logging
+_logger = logging.getLogger(__name__)
+_logger.propagate = False
+
 
 @st.cache_data
 def authenticate() -> googleapiclient.discovery.Resource:
@@ -69,7 +73,7 @@ def search(service: googleapiclient.discovery.Resource, query: str):
 
 
 def save(service: googleapiclient.discovery.Resource, parent_folder: str,
-         filename: str, df: pd.DataFrame, concat: bool, logger) -> str:
+         filename: str, df: pd.DataFrame, concat: bool) -> str:
     def create_token() -> str:
         # create token
         token = str(datetime.now())
@@ -89,7 +93,7 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
                     item_time = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
                     if token_saving_time-item_time > timedelta(seconds=15):
                         delete_file(service, item["id"])
-                        logger.info(f'Found an old token!')
+                        _logger.info(f'Found an old token!')
 
         # waits until this is the first token in time (wait till other threads finish)
         while 0 == 0:
@@ -115,13 +119,13 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
     if not items:
         # create new file
         file_id = save_new_file(service, parent_folder, filename, df)
-        logger.info(f'File saved: {filename}')
+        _logger.info(f'File saved: {filename}')
     else:
         # overwrite existing file
         existing_file_id = items[0]["id"]
         my_token = create_token()
         if concat:
-            df_existing = load(service, items[0]["id"], logger)
+            df_existing = load(service, items[0]["id"])
             df_merged = pd.concat([df_existing, df], ignore_index=True)
             df_merged = df_merged.drop_duplicates()
         else:
@@ -129,11 +133,11 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         delete_file(service, existing_file_id)
         file_id = save_new_file(service, parent_folder, filename, df_merged)
         delete_token(my_token)
-        logger.info(f'File overwritten: {filename}')
+        _logger.info(f'File overwritten: {filename}')
     return file_id
 
 
-def load(service, file_name: str, logger) -> pd.DataFrame:
+def load(service, file_name: str) -> pd.DataFrame:
     try:
         request = service.files().get_media(fileId=file_name)
         file = io.BytesIO()
@@ -142,7 +146,7 @@ def load(service, file_name: str, logger) -> pd.DataFrame:
         while done is False:
             status, done = downloader.next_chunk()
     except HttpError as error:
-        logger.error(f'While loading file, an error occurred: {error}')
+        _logger.error(f'While loading file, an error occurred: {error}')
         file = None
     source = io.StringIO(file.getvalue().decode(encoding='utf-8', errors='ignore'))
     df = pd.read_csv(source)
