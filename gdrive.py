@@ -1,5 +1,3 @@
-from my_logger import getlogger
-
 import io
 from datetime import datetime, timedelta
 
@@ -71,7 +69,7 @@ def search(service: googleapiclient.discovery.Resource, query: str):
 
 
 def save(service: googleapiclient.discovery.Resource, parent_folder: str,
-         filename: str, df: pd.DataFrame, concat: bool) -> str:
+         filename: str, df: pd.DataFrame, concat: bool, logger) -> str:
     def create_token() -> str:
         # create token
         token = str(datetime.now())
@@ -112,7 +110,6 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
     def delete_token(token: str) -> None:
         delete_file(service, token)
 
-    logger, syslog = getlogger()
     q = (f'"{parent_folder}" in parents and name contains "{filename}"')
     items = search(service, q)
     if not items:
@@ -123,7 +120,7 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         # overwrite existing file
         existing_file_id = items[0]["id"]
         my_token = create_token()
-        df_existing = load(service, items[0]["id"])
+        df_existing = load(service, items[0]["id"], logger)
         if concat:
             df_merged = pd.concat([df_existing, df], ignore_index=True)
             df_merged = df_merged.drop_duplicates()
@@ -133,12 +130,10 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         file_id = save_new_file(service, parent_folder, filename, df_merged)
         delete_token(my_token)
         logger.info(f'File overwritten: {filename}')
-        logger.removeHandler(syslog)
-        syslog.close()
     return file_id
 
 
-def load(service, file_name: str) -> pd.DataFrame:
+def load(service, file_name: str, logger) -> pd.DataFrame:
     try:
         request = service.files().get_media(fileId=file_name)
         file = io.BytesIO()
@@ -147,10 +142,7 @@ def load(service, file_name: str) -> pd.DataFrame:
         while done is False:
             status, done = downloader.next_chunk()
     except HttpError as error:
-        logger, syslog = getlogger()
         logger.error(f'While loading file, an error occurred: {error}')
-        logger.removeHandler(syslog)
-        syslog.close()
         file = None
     source = io.StringIO(file.getvalue().decode(encoding='utf-8', errors='ignore'))
     df = pd.read_csv(source)

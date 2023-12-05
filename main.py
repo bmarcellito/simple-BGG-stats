@@ -17,10 +17,8 @@ def main():
     st.set_page_config(layout="wide")
     if "user_exist" not in st.session_state:
         st.session_state.user_exist = False
-        logger, syslog = getlogger()
-        logger.info(f'New session started!')
-        logger.removeHandler(syslog)
-        syslog.close()
+        st.session_state.logger, st.session_state.syslog = getlogger()
+        st.session_state.logger.info(f'New session started!')
     if "refresh_disabled" not in st.session_state:
         st.session_state.refresh_disabled = True
     my_service = gdrive.authenticate()
@@ -41,19 +39,17 @@ def main():
         # if st.session_state.user_exist:
         st.caption(f'User data is cached for {refresh_user_data} days. Push the button to refresh it')
         if st.button(label="Refresh selected user's data", disabled=st.session_state.refresh_disabled):
-            bgg_import.delete_user_info(my_service, bgg_username)
+            bgg_import.delete_user_info(my_service, bgg_username, st.session_state.logger)
             bgg_import.user_collection.clear()
             bgg_import.user_plays.clear()
             submitted = True
 
         if submitted:
             with st.status("Importing data...", expanded=True) as status:
-                logger, syslog = getlogger()
-                logger.info(f'Username entered: {bgg_username}')
-                logger.removeHandler(syslog)
-                syslog.close()
+                st.session_state.logger.info(f'Username entered: {bgg_username}')
                 st.session_state.stat_selection = "Basic statistics"
-                st.session_state.user_exist = bgg_import.check_user(my_service, bgg_username, gdrive_user)
+                st.session_state.user_exist, st.session_state.user_folder = bgg_import.check_user(
+                    my_service, bgg_username, gdrive_user, st.session_state.logger)
                 if not st.session_state.user_exist:
                     status.update(label="No valid user!", state="error", expanded=False)
                     st.session_state.refresh_disabled = True
@@ -61,20 +57,26 @@ def main():
 
                 st.session_state.refresh_disabled = False
                 if st.session_state.user_exist:
-                    st.session_state.my_collection = bgg_import.user_collection(my_service, bgg_username, gdrive_user,
-                                                                                refresh_user_data)
-                    st.session_state.my_plays = bgg_import.user_plays(my_service, bgg_username, gdrive_user,
-                                                                      refresh_user_data)
-                    bgg_import.build_game_db(my_service, gdrive_processed, st.session_state.my_collection)
+                    st.session_state.my_plays = bgg_import.user_plays(
+                        my_service, bgg_username, st.session_state.user_folder, refresh_user_data,
+                        st.session_state.logger)
+                    st.session_state.my_collection = bgg_import.user_collection(
+                        my_service, bgg_username, st.session_state.user_folder, refresh_user_data,
+                        st.session_state.logger)
+                    bgg_import.build_game_db(my_service, gdrive_processed, st.session_state.my_collection,
+                                             st.session_state.logger)
                     st.session_state.global_game_infodb, st.session_state.global_play_numdb = bgg_import\
-                        .build_game_db(my_service, gdrive_processed, st.session_state.my_plays)
+                        .build_game_db(my_service, gdrive_processed, st.session_state.my_plays, st.session_state.logger)
                     if "last_imported" not in st.session_state:
                         st.session_state.last_imported = datetime.now()-timedelta(days=1)
                     if datetime.now() > st.session_state.last_imported:
                         bgg_import.current_ranking.clear()
                         bgg_import.historic_ranking.clear()
-                        st.session_state.global_fresh_ranking = bgg_import.current_ranking(my_service, gdrive_original, gdrive_processed)
-                        st.session_state.global_historic_rankings = bgg_import.historic_ranking(my_service, gdrive_original, gdrive_processed, st.session_state.global_fresh_ranking)
+                        st.session_state.global_fresh_ranking = bgg_import.current_ranking(
+                            my_service, gdrive_original, gdrive_processed, st.session_state.logger)
+                        st.session_state.global_historic_rankings = bgg_import.historic_ranking(
+                            my_service, gdrive_original, gdrive_processed,
+                            st.session_state.global_fresh_ranking, st.session_state.logger)
                         st.session_state.last_imported = datetime.now()+timedelta(days=1)
                     status.update(label="Importing complete!", state="complete", expanded=False)
                 st.rerun()
