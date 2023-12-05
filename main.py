@@ -89,8 +89,8 @@ def main():
             # user has enough information to present statistics
             st.title(f'Statistics of {bgg_username}')
             option = st.selectbox('Choose a statistic',
-                                  ('Basic statistics', 'User\'s collection', 'Favourites',
-                                   'H-index', 'Games tried grouped by year of publication',
+                                  ('Basic statistics', 'User\'s collection', 'H-index', 'Favourite designers',
+                                   'Games tried grouped by year of publication',
                                    'Play statistics by year', 'Games known from BGG top list',
                                    'Stat around game weight', 'Stat around ratings'), key='stat_selection')
             match option:
@@ -102,16 +102,9 @@ def main():
                 case "User\'s collection":
                     bgg_stats.collection(st.session_state.my_collection, st.session_state.global_game_infodb,
                                          st.session_state.global_play_numdb)
-                case "Favourites":
-                    opt_fav = st.selectbox('Choose a topic', ('Favourite games', 'Favourites Designers'),
-                                           key='stat_fav')
-                    match opt_fav:
-                        case 'Favourite games':
-                            bgg_stats.favourite_games(st.session_state.my_collection,
-                                                      st.session_state.global_game_infodb)
-                        case 'Favourites Designers':
-                            bgg_stats.favourite_designers(st.session_state.my_collection,
-                                                          st.session_state.global_game_infodb)
+                case "Favourite designers":
+                    bgg_stats.favourite_designers(st.session_state.my_collection, st.session_state.global_game_infodb)
+                    # bgg_stats.favourite_games(st.session_state.my_collection, st.session_state.global_game_infodb)
                 case "H-index":
                     bgg_stats.h_index(st.session_state.my_plays, st.session_state.global_game_infodb)
                 case "Games tried grouped by year of publication":
