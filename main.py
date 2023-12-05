@@ -8,8 +8,6 @@ import bgg_stats
 import gdrive
 import bgg_import
 
-import logging_tree
-
 
 def main():
     gdrive_original = st.secrets["gdrive_original"]
@@ -34,13 +32,6 @@ def main():
                                 height: 14px;}
                     </style></head><body></body></html>
                 """, unsafe_allow_html=True)
-
-    loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-    for handler in loggers:
-        # print(handler)
-        pass
-    print(len(loggers))
-    logging_tree.printout()
 
     with (st.sidebar):
         st.title("BGG statistics")
