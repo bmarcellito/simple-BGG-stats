@@ -120,12 +120,12 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         # overwrite existing file
         existing_file_id = items[0]["id"]
         my_token = create_token()
-        df_existing = load(service, items[0]["id"], logger)
         if concat:
+            df_existing = load(service, items[0]["id"], logger)
             df_merged = pd.concat([df_existing, df], ignore_index=True)
             df_merged = df_merged.drop_duplicates()
         else:
-            df_merged = df_existing
+            df_merged = df
         delete_file(service, existing_file_id)
         file_id = save_new_file(service, parent_folder, filename, df_merged)
         delete_token(my_token)

@@ -57,10 +57,10 @@ def main():
 
                 st.session_state.refresh_disabled = False
                 if st.session_state.user_exist:
-                    st.session_state.my_plays = bgg_import.user_plays(
+                    st.session_state.my_collection = bgg_import.user_collection(
                         my_service, bgg_username, st.session_state.user_folder, refresh_user_data,
                         st.session_state.logger)
-                    st.session_state.my_collection = bgg_import.user_collection(
+                    st.session_state.my_plays = bgg_import.user_plays(
                         my_service, bgg_username, st.session_state.user_folder, refresh_user_data,
                         st.session_state.logger)
                     bgg_import.build_game_db(my_service, gdrive_processed, st.session_state.my_collection,
