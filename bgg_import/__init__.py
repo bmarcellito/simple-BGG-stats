@@ -1,6 +1,6 @@
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
 from xml.etree import ElementTree as ET
 
@@ -15,10 +15,20 @@ import gdrive
 import logging
 import my_logger
 
-logging.basicConfig(level=logging.INFO)
-logger, syslog = my_logger.getlogger(__name__)
+logger = my_logger.getlogger(__name__)
 logger.propagate = False
 logger.setLevel(logging.INFO)
+
+
+def timeit(func):
+    def timed(*args, **kwargs):
+        ts = time.time()
+        result = func(*args, **kwargs)
+        te = time.time()
+        log_text = f'Function: {func.__name__}, execution time: {round((te - ts) * 1000, 1)}ms'
+        logger.info(log_text)
+        return result
+    return timed
 
 
 def import_xml_from_bgg(link: str) -> str:
@@ -97,22 +107,18 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
     q = (f'"{path_original}" in parents and name contains "{filename_source}"')
     items_source = gdrive.search(_service, q)
     if not items_source:
-        logger.info(f'No fresh ranking source file')
         source_last_modified = 0
         data_source = False
     else:
-        logger.info(f'Fresh ranking source file found')
         source_last_modified = items_source[0]["modifiedTime"]
         data_source = True
 
     q = (f'"{path_processed}" in parents and name contains "{filename_processed}"')
     items_processed = gdrive.search(_service, q)
     if not items_processed:
-        logger.info(f'No processed fresh ranking ')
         data_processed = False
         process_last_modified = 0
     else:
-        logger.info(f'Processed fresh ranking found')
         data_processed = True
         process_last_modified = items_processed[0]["modifiedTime"]
 
@@ -140,8 +146,8 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
     df.rename(columns={"id": "objectid"}, inplace=True)
 
     gdrive.save(_service, path_processed, filename_processed, df, False)
-    st.caption(f'Importing finished. Number of games: {len(df)}')
-    logger.info(f'Found new current ranking data. It is imported')
+    st.caption(f'Importing finished. Number of items: {len(df)}')
+    logger.info(f'Found new current ranking data. It is imported. Number of items: {len(df)}')
     return df
 
 
@@ -163,7 +169,6 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     :param game_list: list of all games in a dataframe
     :return: imported data in dataframe
     """
-
     def sort_files(sort_by):
         return sort_by["name"]
 
@@ -173,7 +178,6 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     q = (f'"{path_processed}" in parents and name contains "{filename}"')
     items = gdrive.search(_service, q)
     if not items:
-        logger.info("No processed historical game rankings")
         existing_imports = []
         # game DB is the start of the historical dataframe
         if not game_list.empty:
@@ -181,7 +185,6 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
         else:
             df_historical = pd.DataFrame(columns=["objectid", "name", "yearpublished"])
     else:
-        logger.info("processed Importing historical game rankings found")
         df_historical = gdrive.load(_service, items[0]["id"])
         existing_imports = df_historical.columns.values.tolist()
         del existing_imports[:3]
@@ -190,7 +193,7 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     files_to_import = []
     items = gdrive.search(_service, query=f'"{path_original}" in parents')
     if not items:
-        logger.info(f'Historical ranking imported. No historical original data found')
+        logger.info(f'Processed Historical rankings loaded. No historical original data found')
         return df_historical
     for item in items:
         if re.match(r'\d{4}-\d{2}-\d{2}', item['name']):
@@ -202,20 +205,19 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     files_to_import.sort(key=sort_files)
     if not files_to_import:
         if df_historical.empty:
-            logger.error("No game info list available, no processed historical game rankings available. "
-                          "Cannot create historical game rankings data!")
+            st.caption(f'No game info list available, no processed historical game rankings available. '
+                       f'Cannot create historical game rankings data!')
+            logger.error("No game info list available, no processed historical game rankings available.")
         else:
             st.caption(f'Importing finished. Number of sampling: {len(existing_imports)}')
-            logger.info(f'Historical ranking imported. No new data')
+            logger.info(f'Historical ranking loaded. No new data')
         return df_historical
 
-    logger.info("historical original data found")
     # each iteration loads a file, and adds the ranking information from it as a column to the historical dataframe
     progress_text = "Importing new historical game rankings file..."
     step_all = len(files_to_import) + 1
-    step = 0
     my_bar = st.progress(0, text=progress_text)
-    for i in files_to_import:
+    for step, i in enumerate(files_to_import):
         historical_loaded = gdrive.load(_service, i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
@@ -224,7 +226,6 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
         historical_loaded.rename(columns={"Rank": column_name}, inplace=True)
         historical_loaded.rename(columns={"ID": "objectid"}, inplace=True)
         df_historical = df_historical.merge(historical_loaded, on="objectid", how="outer")
-        step += 1
         my_bar.progress(step * 100 // step_all, text=progress_text)
 
     # reorder columns
@@ -254,13 +255,8 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
 
 
 # noinspection PyRedundantParentheses
-def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: str,
-                  df_new: pd.DataFrame):
-    if "user_rating" in df_new.columns.values:
-        st.caption("Importing detailed game information for user's collection...")
-    else:
-        st.caption("Importing detailed game information for user's plays...")
-
+def build_item_db(_service: googleapiclient.discovery.Resource, path_processed: str,
+                  df_new: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
     filename_game = "game_infoDB.csv"
     filename_playnum = "playnum_infoDB.csv"
 
@@ -282,7 +278,6 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
 
     # first we loaded the existing files, so we can still return data if the request is empty
     if df_new.empty:
-        logger.info(f'Request for additional item info sent empty datafile. No new info items')
         return df_game_info, df_playnumdb
 
     possible_new_items = df_new.groupby("objectid").count().reset_index()
@@ -296,14 +291,14 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
     else:
         games_to_import_list = possible_new_items_list
     if not games_to_import_list:
-        logger.info(f'Item info loaded. No new item info needed')
         return df_game_info, df_playnumdb
 
+    df_game_info = pd.DataFrame()
+    df_playnumdb = pd.DataFrame()
     progress_text = "Reading game information..."
     my_bar = st.progress(0, text=progress_text)
-    step = 0
     step_all = len(games_to_import_list)
-    for i in games_to_import_list:
+    for step, i in enumerate(games_to_import_list):
         result = import_xml_from_bgg(f'thing?id={i}&stats=1')
         row_objectid = i
 
@@ -372,16 +367,30 @@ def build_game_db(_service: googleapiclient.discovery.Resource, path_processed: 
             df_game_info = pd.DataFrame(new_row, index=[0])
         else:
             df_game_info.loc[len(df_game_info)] = new_row
-        step += 1
         df_playnumdb = import_player_number(df_playnumdb, result, row_objectid)
-        my_bar.progress(step * 100 // step_all, text=progress_text)
+        my_bar.progress((step+1) * 100 // step_all, text=progress_text)
     my_bar.empty()
 
     gdrive.save(_service, path_processed, filename_game, df_game_info, True)
     gdrive.save(_service, path_processed, filename_playnum, df_playnumdb, True)
 
-    st.caption(f'Importing finished. {len(games_to_import_list)} new game information saved.')
-    logger.info(f'New item info imported')
+    st.caption(f'Importing finished. {len(games_to_import_list)} new item information saved.')
+    return df_game_info, df_playnumdb
+
+
+@timeit
+def build_item_db_game(_service: googleapiclient.discovery.Resource, path_processed: str,
+                       df_new_games: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+    st.caption("Importing detailed item information for user's collection...")
+    df_game_info, df_playnumdb = build_item_db(_service, path_processed, df_new_games)
+    return df_game_info, df_playnumdb
+
+
+@timeit
+def build_item_db_play(_service: googleapiclient.discovery.Resource, path_processed: str,
+                       df_new_plays: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+    st.caption("Importing detailed item information for user's plays...")
+    df_game_info, df_playnumdb = build_item_db(_service, path_processed, df_new_plays)
     return df_game_info, df_playnumdb
 
 
@@ -459,7 +468,7 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
             st.caption(f'Importing finished. Number of games in collection: {len(df)}')
-            logger.info(f'Collection of {username} loaded. No importing as it is fresh enough')
+            logger.info(f'Collection of {username} loaded. It is {how_fresh} old.')
             return df
 
     result = import_xml_from_bgg(f'collection?username={username}&stats=1')
@@ -486,7 +495,7 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
     gdrive.save(_service, path_user, filename, df, False)
 
     st.caption(f'Collection imported. Number of games + expansions known: {len(df)}')
-    logger.info(f'Collection of {username} imported')
+    logger.info(f'Collection of {username} imported. Number of items: {len(df)}')
     return df
 
 
@@ -517,7 +526,7 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
             st.caption(f'Importing finished. Number of plays: {len(df)}')
-            logger.info(f'Plays of {username} loaded. It is fresh enough, no import')
+            logger.info(f'Plays of {username} loaded. It is {how_fresh} old.')
             return df
 
     # read the first page of play info from BGG
@@ -530,7 +539,7 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
     total = int("".join(filter(str.isdigit, result[i + 7:i + 12])))
     if total == 0:
         st.caption(f'User {username} haven\'t recorded any plays yet.')
-        logger.info(f'User {username} haven\'t recorded any plays yet.')
+        logger.info(f'Importing plays: user {username} has not recorded any plays yet.')
         return df
     page_no, rest = divmod(total, 100)
     if rest > 0:
@@ -574,5 +583,5 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
     my_bar.progress(step * 100 // step_all, text=progress_text)
     my_bar.empty()
     st.caption(f'Importing finished. Number of plays: {len(df_play)}')
-    logger.info(f'Plays of {username} imported')
+    logger.info(f'Plays of {username} imported. Number of plays: {len(df_play)}')
     return df_play

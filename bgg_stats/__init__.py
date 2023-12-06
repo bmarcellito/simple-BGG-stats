@@ -10,10 +10,15 @@ import re
 
 
 # @st.cache_data(ttl=86400)
-def add_description(title: str) -> None:
-    with st.expander("See explanation of data"):
-        df = pd.read_csv("bgg_stats/stat_desc.csv", index_col="topic")
-        st.markdown(df.at[title, "description"])
+def add_description(title: str, method="explanation") -> None:
+    df = pd.read_csv("bgg_stats/stat_desc.csv", index_col="topic")
+    text_to_show = df.at[title, "description"]
+    match method:
+        case "explanation":
+            with st.expander("See explanation of data"):
+                st.markdown(text_to_show)
+        case "description":
+            st.write(text_to_show)
     return None
 
 
@@ -156,7 +161,7 @@ def favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.DataFram
     df_favourite_designer.drop(["index", "level_0"], inplace=True, axis=1)
     df_favourite_designer.index = pd.RangeIndex(start=1, stop=len(df_favourite_designer)+1, step=1)
     st.table(df_favourite_designer)
-
+    add_description("favourite_designers")
 
 def stat_not_played(df_collection: pd.DataFrame) -> None:
     # st.subheader("Owned games not played yet")
@@ -229,10 +234,10 @@ def plays_by_publication(df_plays: pd.DataFrame, df_collection: pd.DataFrame, df
     played = df_plays.merge(df_collection, how="left", on="objectid", suffixes=("", "_y"))
     played.drop(["yearpublished"], inplace=True, axis=1)
     played = played.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
-    # st.write(played.columns.values)
+
     played = played[["name", "date", "quantity", "year_published", "own", "type"]]
     played.rename(columns={"year_published": "yearpublished"}, inplace=True)
-    # played["date"] = played["date"].str[0:7]
+
     under_cut = len(played.loc[played["yearpublished"] <= cut_year])
     played["yearpublished"] = played["yearpublished"].clip(lower=cut_year)
 
@@ -368,7 +373,7 @@ def yearly_plays(df_play_stat: pd.DataFrame) -> None:
     df_all_plays.rename("Number of plays", inplace=True)
 
     df_result = pd.merge(df_new_games, df_played, how="left", on="year")
-    df_result = pd.merge(df_result, df_all_plays, how="left", on="year").reset_index()
+    df_result = pd.merge(df_result, df_all_plays, how="left", on="year").sort_values("year",ascending=False).reset_index()
 
     st.dataframe(df_result, hide_index=True, use_container_width=True)
     add_description("yearly_plays")
@@ -377,9 +382,10 @@ def yearly_plays(df_play_stat: pd.DataFrame) -> None:
 
 def historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     # st.subheader("Games known from BGG top list")
-    method = st.selectbox("How to show data?", ('Basic', 'Cumulative'), key='TOP100')
+    # method = st.selectbox("How to show data?", ('Basic', 'Cumulative'), key='TOP100')
+    # TODO add years from DB
     st.selectbox("Show data from year...", ('2017', '2018', '2019', '2020', '2021'), key='sel_year')
-    st.selectbox("Data sampling", ('Yearly', 'Quarterly', 'Monthly'), key='sel_sampling')
+    # st.selectbox("Data sampling", ('Yearly', 'Quarterly', 'Monthly'), key='sel_sampling')
 
     # create list of date we have ranking information
     periods = []
@@ -398,22 +404,22 @@ def historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
         if this_item >= from_year:
             periods.append(item)
 
-    to_filter = periods
-    periods = []
-    if 'sel_sampling' not in st.session_state:
-        st.session_state.sel_sampling = 'Yearly'
-    for item in to_filter:
-        match st.session_state.sel_sampling:
-            case "Yearly":
-                this_item = item[-5:]
-                if this_item == "01-01":
-                    periods.append(item)
-            case 'Quarterly':
-                this_item = item[-5:]
-                if this_item in {"01-01", "04-01", "07-01", "10-01"}:
-                    periods.append(item)
-            case 'Monthly':
-                periods.append(item)
+    # to_filter = periods
+    # periods = []
+    # if 'sel_sampling' not in st.session_state:
+    #     st.session_state.sel_sampling = 'Yearly'
+    # for item in to_filter:
+    #     match st.session_state.sel_sampling:
+    #         case "Yearly":
+    #             this_item = item[-5:]
+    #             if this_item == "01-01":
+    #                 periods.append(item)
+    #         case 'Quarterly':
+    #             this_item = item[-5:]
+    #             if this_item in {"01-01", "04-01", "07-01", "10-01"}:
+    #                 periods.append(item)
+    #         case 'Monthly':
+    #             periods.append(item)
 
     # create list of games with their first play dates
     df_plays = plays.groupby(["name", "objectid"])[["date"]].min()
@@ -442,15 +448,19 @@ def historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
         top1000 = top1000 + top500
         top2000 = top2000 + top1000
         df_result_cum.loc[len(df_result_cum)] = [periods[i], top100, top200, top300, top400, top500, top1000, top2000]
-    match method:
-        case "Basic":
-            st.line_chart(df_result, x="Date", height=600)
-            with st.expander("Numerical presentation"):
-                st.dataframe(df_result, hide_index=True, use_container_width=True)
-        case "Cumulative":
-            st.line_chart(df_result_cum, x="Date", height=600)
-            with st.expander("Numerical presentation"):
-                st.dataframe(df_result_cum, hide_index=True, use_container_width=True)
+
+    st.line_chart(df_result_cum, x="Date", height=600)
+    with st.expander("Numerical presentation"):
+        st.dataframe(df_result_cum, hide_index=True, use_container_width=True)
+    # match method:
+    #     case "Basic":
+    #         st.line_chart(df_result, x="Date", height=600)
+    #         with st.expander("Numerical presentation"):
+    #             st.dataframe(df_result, hide_index=True, use_container_width=True)
+    #     case "Cumulative":
+    #         st.line_chart(df_result_cum, x="Date", height=600)
+    #         with st.expander("Numerical presentation"):
+    #             st.dataframe(df_result_cum, hide_index=True, use_container_width=True)
 
     add_description("historic_ranking")
     return None

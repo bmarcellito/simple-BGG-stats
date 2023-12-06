@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-
+from requests import get
 import streamlit as st
 
 import logging
@@ -18,10 +18,10 @@ def main():
     st.set_page_config(layout="wide")
     if "user_exist" not in st.session_state:
         st.session_state.user_exist = False
-        st.session_state.logger, st.session_state.syslog = getlogger(__name__)
+        st.session_state.logger = getlogger(__name__)
         st.session_state.logger.propagate = False
-        st.session_state.logger.setLevel(logging.INFO)
-        st.session_state.logger.info(f'New session started!')
+        st.session_state.ip = get('https://api.ipify.org').text
+        st.session_state.logger.info(f'New session started from {st.session_state.ip}')
     if "refresh_disabled" not in st.session_state:
         st.session_state.refresh_disabled = True
     my_service = gdrive.authenticate()
@@ -50,7 +50,6 @@ def main():
 
         if submitted:
             with st.status("Importing data...", expanded=True) as status:
-                st.session_state.logger.info(f'Username entered: {bgg_username}')
                 st.session_state.stat_selection = "Basic statistics"
                 st.session_state.user_exist, st.session_state.user_folder = bgg_import.check_user(
                     my_service, bgg_username, gdrive_user)
@@ -61,13 +60,14 @@ def main():
 
                 st.session_state.refresh_disabled = False
                 if st.session_state.user_exist:
+                    execution_time = datetime.now()
                     st.session_state.my_collection = bgg_import.user_collection(
                         my_service, bgg_username, st.session_state.user_folder, refresh_user_data)
                     st.session_state.my_plays = bgg_import.user_plays(
                         my_service, bgg_username, st.session_state.user_folder, refresh_user_data)
-                    bgg_import.build_game_db(my_service, gdrive_processed, st.session_state.my_collection)
+                    bgg_import.build_item_db_game(my_service, gdrive_processed, st.session_state.my_collection)
                     st.session_state.global_game_infodb, st.session_state.global_play_numdb = bgg_import \
-                        .build_game_db(my_service, gdrive_processed, st.session_state.my_plays)
+                        .build_item_db_play(my_service, gdrive_processed, st.session_state.my_plays)
                     if "last_imported" not in st.session_state:
                         st.session_state.last_imported = datetime.now()-timedelta(days=1)
                     if datetime.now() > st.session_state.last_imported:
@@ -80,6 +80,8 @@ def main():
                             st.session_state.global_fresh_ranking)
                         st.session_state.last_imported = datetime.now()+timedelta(days=1)
                     status.update(label="Importing complete!", state="complete", expanded=False)
+                    st.session_state.logger.info(f'Complete importing execution time for '
+                                                 f'user {bgg_username}: {datetime.now() - execution_time}')
                 st.rerun()
 
     if st.session_state.user_exist:
@@ -132,6 +134,8 @@ def main():
         st.title("Statistics")
         st.write("Enter a user name first!")
         st.write("Use the sidebar on the left! Click the tiny arrow in the top left corner to open it.")
+        st.write("")
+        bgg_stats.add_description("intro", "description")
 
 
 if __name__ == "__main__":

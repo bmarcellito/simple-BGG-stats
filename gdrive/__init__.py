@@ -12,8 +12,7 @@ from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 import logging
 import my_logger
 
-logging.basicConfig(level=logging.INFO)
-logger, syslog = my_logger.getlogger(__name__)
+logger = my_logger.getlogger(__name__)
 logger.propagate = False
 logger.setLevel(logging.INFO)
 
