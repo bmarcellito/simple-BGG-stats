@@ -14,8 +14,8 @@ import bgg_import
 def import_globals() -> None:
     # first we load all available global data files
     bgg_import.init_load()
-    st.session_state.ip = get('https://api.ipify.org').text
-    st.session_state.logger.info(f'New session started from {st.session_state.ip}')
+    # st.session_state.ip = get('https://api.ipify.org').text
+    # st.session_state.logger.info(f'New session started from {st.session_state.ip}')
     # daily check of new data files in the background until the website runs
     while 0 == 0:
         st.session_state.global_fresh_ranking = bgg_import.current_ranking()
