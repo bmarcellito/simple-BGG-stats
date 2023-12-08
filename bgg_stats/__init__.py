@@ -1,15 +1,12 @@
-# dataframes
 import pandas as pd
-# WEB interface
 import streamlit as st
 import plotly.express as px
-# reading historical scraped files
 from datetime import datetime, timedelta
 
 import re
 
 
-# @st.cache_data(ttl=86400)
+@st.cache_data(ttl=86400)
 def add_description(title: str, method="explanation") -> None:
     df = pd.read_csv("bgg_stats/stat_desc.csv", index_col="topic")
     text_to_show = df.at[title, "description"]
@@ -162,6 +159,7 @@ def favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.DataFram
     df_favourite_designer.index = pd.RangeIndex(start=1, stop=len(df_favourite_designer)+1, step=1)
     st.table(df_favourite_designer)
     add_description("favourite_designers")
+
 
 def stat_not_played(df_collection: pd.DataFrame) -> None:
     # st.subheader("Owned games not played yet")
@@ -373,7 +371,8 @@ def yearly_plays(df_play_stat: pd.DataFrame) -> None:
     df_all_plays.rename("Number of plays", inplace=True)
 
     df_result = pd.merge(df_new_games, df_played, how="left", on="year")
-    df_result = pd.merge(df_result, df_all_plays, how="left", on="year").sort_values("year",ascending=False).reset_index()
+    df_result = (pd.merge(df_result, df_all_plays, how="left", on="year").sort_values("year", ascending=False).
+                 reset_index())
 
     st.dataframe(df_result, hide_index=True, use_container_width=True)
     add_description("yearly_plays")

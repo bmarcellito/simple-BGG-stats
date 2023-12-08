@@ -16,6 +16,9 @@ logger = my_logger.getlogger(__name__)
 logger.propagate = False
 logger.setLevel(logging.INFO)
 
+extension_normal = ".csv"
+extension_compressed = ".zip"
+
 
 @st.cache_data
 def authenticate() -> googleapiclient.discovery.Resource:
@@ -38,19 +41,20 @@ def authenticate() -> googleapiclient.discovery.Resource:
     return service
 
 
-def create_folder(service: googleapiclient.discovery.Resource, parent_folder: str, folder_name: str) -> str:
-    file_metadata2 = {
+def create_folder(parent_folder: str, folder_name: str) -> str:
+    service = authenticate()
+    file_metadata = {
         'name': folder_name,
         'mimeType': 'application/vnd.google-apps.folder',
         'parents': [parent_folder]
     }
-    file = service.files().create(body=file_metadata2, fields="id").execute()
+    file = service.files().create(body=file_metadata, fields="id").execute()
     folder_id = file.get("id")
     return folder_id
 
 
-def save_new_file(service: googleapiclient.discovery.Resource,
-                  parent_folder: str, file_name: str, df: pd.DataFrame) -> str:
+def save_new_file(service: googleapiclient.discovery.Resource, parent_folder: str,
+                  file_name: str, df: pd.DataFrame) -> str:
     file_metadata = {
         'name': file_name,
         'parents': [parent_folder],
@@ -65,18 +69,19 @@ def save_new_file(service: googleapiclient.discovery.Resource,
     return file_id
 
 
-def delete_file(service: googleapiclient.discovery.Resource, file_id: str) -> None:
+def delete_file(file_id: str) -> None:
+    service = authenticate()
     service.files().delete(fileId=file_id).execute()
     return None
 
 
-def search(service: googleapiclient.discovery.Resource, query: str):
+def search(query: str):
+    service = authenticate()
     results = service.files().list(q=query, fields="files(id, name, modifiedTime)").execute()
     return results.get('files', [])
 
 
-def save(service: googleapiclient.discovery.Resource, parent_folder: str,
-         filename: str, df: pd.DataFrame, concat: bool) -> str:
+def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: bool) -> str:
     def create_token() -> str:
         # create token
         token = str(datetime.now())
@@ -87,7 +92,8 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         # delete old broken tokens
         file = service.files().get(fileId=token_id, fields='modifiedTime').execute()
         token_saving_time = datetime.strptime(file.get('modifiedTime'), "%Y-%m-%dT%H:%M:%S.%fZ")
-        items = search(service, query=f'"{session_folder_id}" in parents')
+        q = f'"{session_folder_id}" in parents'
+        items = search(query=q)
         if items:
             for item in items:
                 if item["id"] == token_id:
@@ -95,12 +101,13 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
                 else:
                     item_time = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
                     if token_saving_time-item_time > timedelta(seconds=15):
-                        delete_file(service, item["id"])
+                        service.files().delete(fileId=item["id"]).execute()
                         logger.info(f'Found an old token!')
 
         # waits until this is the first token in time (wait till other threads finish)
         while 0 == 0:
-            items = search(service, query=f'"{session_folder_id}" in parents')
+            q = f'"{session_folder_id}" in parents'
+            items = search(query=q)
             if not items:
                 continue
             first_token_id = items[0]["id"]
@@ -115,34 +122,38 @@ def save(service: googleapiclient.discovery.Resource, parent_folder: str,
         return token_id
 
     def delete_token(token: str) -> None:
-        delete_file(service, token)
+        service.files().delete(fileId=token).execute()
 
-    q = (f'"{parent_folder}" in parents and name contains "{filename}"')
-    items = search(service, q)
+    service = authenticate()
+    full_filename = filename+extension_normal
+    q = f'"{parent_folder}" in parents and name contains "{full_filename}"'
+    items = search(query=q)
     if not items:
         # create new file
-        file_id = save_new_file(service, parent_folder, filename, df)
-        logger.info(f'File saved: {filename}')
+        file_id = save_new_file(service=service, parent_folder=parent_folder,
+                                file_name=full_filename, df=df)
+        logger.info(f'File saved: {full_filename}')
     else:
         # overwrite existing file
         existing_file_id = items[0]["id"]
         my_token = create_token()
         if concat:
-            df_existing = load(service, items[0]["id"])
+            df_existing = load(file_id=items[0]["id"])
             df_merged = pd.concat([df_existing, df], ignore_index=True)
             df_merged = df_merged.drop_duplicates()
         else:
             df_merged = df
-        delete_file(service, existing_file_id)
-        file_id = save_new_file(service, parent_folder, filename, df_merged)
+        service.files().delete(fileId=existing_file_id).execute()
+        file_id = save_new_file(service=service, parent_folder=parent_folder, file_name=full_filename, df=df_merged)
         delete_token(my_token)
-        logger.info(f'File overwritten: {filename}')
+        logger.info(f'File overwritten: {full_filename}')
     return file_id
 
 
-def load(service, file_name: str) -> pd.DataFrame:
+def load(file_id: str) -> pd.DataFrame:
+    service = authenticate()
     try:
-        request = service.files().get_media(fileId=file_name)
+        request = service.files().get_media(fileId=file_id)
         file = io.BytesIO()
         downloader = MediaIoBaseDownload(file, request)
         done = False

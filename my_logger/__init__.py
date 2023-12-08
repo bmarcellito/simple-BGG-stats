@@ -1,8 +1,19 @@
 import logging
 import socket
 from logging.handlers import SysLogHandler
+import time
 
 import streamlit as st
+
+def timeit(func):
+    def timed(*args, **kwargs):
+        ts = time.time()
+        result = func(*args, **kwargs)
+        te = time.time()
+        log_text = f'Function: {func.__name__}, execution time: {round((te - ts) * 1000, 1)}ms'
+        logger.info(log_text)
+        return result
+    return timed
 
 
 def getlogger(name):
@@ -26,3 +37,7 @@ def getlogger(name):
     logger.propagate = False
     # logger.setLevel(logging.INFO)
     return logger
+
+logger = getlogger(__name__)
+logger.propagate = False
+logger.setLevel(logging.INFO)

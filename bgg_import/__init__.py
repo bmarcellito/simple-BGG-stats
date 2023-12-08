@@ -1,40 +1,52 @@
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
+import requests
 from io import StringIO
 from xml.etree import ElementTree as ET
-
-import googleapiclient.discovery
 import pandas as pd
-
-import requests
 import streamlit as st
 
 import gdrive
-
 import logging
 import my_logger
+
+gdrive_original = st.secrets["gdrive_original"]
+gdrive_processed = st.secrets["gdrive_processed"]
+gdrive_user = st.secrets["gdrive_user"]
+filename_current_ranking_source = "boardgames_list"
+filename_current_ranking_processed = "current_ranking"
+filename_historical_ranking_processed = "historical_ranking"
+filename_game_infodb_processed = "game_infoDB"
+filename_playnum_processed = "playnum_infoDB"
 
 logger = my_logger.getlogger(__name__)
 logger.propagate = False
 logger.setLevel(logging.INFO)
 
 
-def timeit(func):
-    def timed(*args, **kwargs):
-        ts = time.time()
-        result = func(*args, **kwargs)
-        te = time.time()
-        log_text = f'Function: {func.__name__}, execution time: {round((te - ts) * 1000, 1)}ms'
-        logger.info(log_text)
-        return result
-    return timed
+@my_logger.timeit
+def init_load() -> None:
+    pass
 
 
 def import_xml_from_bgg(link: str) -> str:
     # HTTP request from boardgamegeek.com
     while True:
-        response = requests.get(f'https://boardgamegeek.com/xmlapi2/{link}')
+        try:
+            response = requests.get(f'https://boardgamegeek.com/xmlapi2/{link}', timeout=10)
+        except requests.exceptions.HTTPError as err:
+            logger.error(f'Http error: {err}. Link: {link}')
+            continue
+        except requests.exceptions.ConnectionError as err:
+            logger.error(f'Error connecting: {err}. Link: {link}')
+            continue
+        except requests.exceptions.Timeout as err:
+            logger.error(f'Timeout error: {err}. Link: {link}')
+            continue
+        except requests.exceptions.RequestException as err:
+            logger.error(f'Other request error: {err}. Link: {link}')
+            continue
         if response.status_code == 200:
             break
         # BGG cannot handle huge amount of requests. Let's give it some rest!
@@ -43,69 +55,68 @@ def import_xml_from_bgg(link: str) -> str:
 
 
 @st.cache_data(show_spinner=False)
-def check_user(_service: googleapiclient.discovery.Resource, username: str, user_folder: str) -> (bool, str):
+def check_user(username: str) -> str:
     st.caption("Checking user on BGG...")
+    global gdrive_user
     result = import_xml_from_bgg(f'collection?username={username}')
     try:
         df = pd.read_xml(StringIO(result))
     except ValueError:
         st.caption(f'No user found on bgg with this username: {username}')
-        return False, ""
+        return "No valid user"
     if "message" in df.columns:
         st.caption(f'No user found on bgg with this username: {username}')
-        return False, ""
+        return "No valid user"
 
-    q = (f'"{user_folder}" in parents and mimeType = "application/vnd.google-apps.folder" '
+    q = (f'"{gdrive_user}" in parents and mimeType = "application/vnd.google-apps.folder" '
          f'and name contains "{username}"')
-    items = gdrive.search(_service, query=q)
+    items = gdrive.search(query=q)
     if not items:
-        user_folder = gdrive.create_folder(_service, parent_folder=user_folder, folder_name=username)
+        gdrive.create_folder(parent_folder=gdrive_user, folder_name=username)
         logger.info(f'Folder created: {username}')
     st.caption("User found on BGG!")
-    return True, user_folder
+    return "User found"
 
 
-def delete_user_info(_service: googleapiclient.discovery.Resource, username: str) -> None:
-    general_user_folder_id = st.secrets["gdrive_user"]
-    q = (f'"{general_user_folder_id}" in parents and mimeType = "application/vnd.google-apps.folder" '
+def delete_user_info(username: str) -> None:
+    global gdrive_user
+    q = (f'"{gdrive_user}" in parents and mimeType = "application/vnd.google-apps.folder" '
          f'and name contains "{username}"')
-    folder_items = gdrive.search(_service, query=q)
+    folder_items = gdrive.search(query=q)
     if not folder_items:
         logger.info(f'Delete user: No folder to user: {username}, so no data to delete')
         return None
 
-    items = gdrive.search(_service, query=f'"{folder_items[0]["id"]}" in parents')
+    items = gdrive.search(query=f'"{folder_items[0]["id"]}" in parents')
     if not items:
         logger.info(f'Delete user: No data to delete: {username}')
         return None
     else:
         for item in items:
-            gdrive.delete_file(_service, item["id"])
+            gdrive.delete_file(file_id=item["id"])
 
     logger.info(f'Delete user successfully: {username}')
     return None
 
 
 # noinspection PyRedundantParentheses
-@st.cache_data(show_spinner=False)
-def current_ranking(_service: googleapiclient.discovery.Resource, path_original: str, path_processed: str) \
+def current_ranking() \
         -> pd.DataFrame:
     """
     There is no API on BGG for downloading all games and their current ranking
     However they upload a .csv file daily that has all the information
     This function reads such a file and removes unnecessary columns
     Changes monthly. User independent, enough to load at the start
-    :param _service: Google Drive
-    :param path_original:
-    :param path_processed: where should the processed data be saved
     :return: imported data in dataframe
     """
-    st.caption("Importing list of board games...")
-    filename_source = "boardgames_list.csv"
-    filename_processed = "current_ranking.csv"
+    # st.caption("Importing list of board games...")
+    global gdrive_original
+    global gdrive_processed
+    global filename_current_ranking_source
+    global filename_current_ranking_processed
 
-    q = (f'"{path_original}" in parents and name contains "{filename_source}"')
-    items_source = gdrive.search(_service, q)
+    q = (f'"{gdrive_original}" in parents and name contains "{filename_current_ranking_source}"')
+    items_source = gdrive.search(query=q)
     if not items_source:
         source_last_modified = 0
         data_source = False
@@ -113,8 +124,8 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
         source_last_modified = items_source[0]["modifiedTime"]
         data_source = True
 
-    q = (f'"{path_processed}" in parents and name contains "{filename_processed}"')
-    items_processed = gdrive.search(_service, q)
+    q = (f'"{gdrive_processed}" in parents and name contains "{filename_current_ranking_processed}"')
+    items_processed = gdrive.search(query=q)
     if not items_processed:
         data_processed = False
         process_last_modified = 0
@@ -123,38 +134,36 @@ def current_ranking(_service: googleapiclient.discovery.Resource, path_original:
         process_last_modified = items_processed[0]["modifiedTime"]
 
     if (not data_source) and (not data_processed):
-        st.caption("Missing current ranking information!")
+        # st.caption("Missing current ranking information!")
         logger.error(f'Current ranking info: No original & no processed data!')
         return pd.DataFrame()
 
     if (not data_source) and data_processed:
-        df = gdrive.load(_service, items_processed[0]["id"])
-        st.caption(f'Importing finished. Number of items: {len(df)}')
+        df = gdrive.load(file_id=items_processed[0]["id"])
+        # st.caption(f'Importing finished. Number of items: {len(df)}')
         logger.info(f'Processed current ranking data loaded. No original data founded')
         return df
 
     if data_source and data_processed:
         if process_last_modified > source_last_modified:
-            df = gdrive.load(_service, items_processed[0]["id"])
-            st.caption(f'Importing finished. Number of items: {len(df)}')
+            df = gdrive.load(file_id=items_processed[0]["id"])
+            # st.caption(f'Importing finished. Number of items: {len(df)}')
             logger.info(f'Processed current ranking data loaded. No new original data founded')
             return df
 
-    df = gdrive.load(_service, items_source[0]["id"])
+    df = gdrive.load(file_id=items_source[0]["id"])
     df = df[["id", "name", "yearpublished", "rank", "abstracts_rank", "cgs_rank", "childrensgames_rank",
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
     df.rename(columns={"id": "objectid"}, inplace=True)
 
-    gdrive.save(_service, path_processed, filename_processed, df, False)
-    st.caption(f'Importing finished. Number of items: {len(df)}')
+    gdrive.save(parent_folder=gdrive_processed, filename=filename_current_ranking_processed, df=df, concat=False)
+    # st.caption(f'Importing finished. Number of items: {len(df)}')
     logger.info(f'Found new current ranking data. It is imported. Number of items: {len(df)}')
     return df
 
 
 # noinspection PyRedundantParentheses
-@st.cache_data(show_spinner=False)
-def historic_ranking(_service: googleapiclient.discovery.Resource, path_original: str, path_processed: str,
-                     game_list: pd.DataFrame) -> pd.DataFrame:
+def historic_ranking(game_list: pd.DataFrame) -> pd.DataFrame:
     """
     Importing the game rankings from multiple different dates
     Historic game ranking information cannot be accessed via API at BGG
@@ -163,20 +172,19 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     This function loads the files one by one and add the ranking information as a new column
     The game IDs and names come from the game DB (downloaded by a different function)
     Changes monthly. User independent, enough to load at the start
-    :param _service: Google Drive
-    :param path_original: where are the data scrape files
-    :param path_processed: where should the processed data be saved
     :param game_list: list of all games in a dataframe
     :return: imported data in dataframe
     """
     def sort_files(sort_by):
         return sort_by["name"]
 
-    st.caption("Importing historical game rankings")
-    filename = "historical_ranking.csv"
+    # st.caption("Importing historical game rankings")
+    global gdrive_original
+    global gdrive_processed
+    global filename_historical_ranking_processed
 
-    q = (f'"{path_processed}" in parents and name contains "{filename}"')
-    items = gdrive.search(_service, q)
+    q = (f'"{gdrive_processed}" in parents and name contains "{filename_historical_ranking_processed}"')
+    items = gdrive.search(query=q)
     if not items:
         existing_imports = []
         # game DB is the start of the historical dataframe
@@ -185,13 +193,13 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
         else:
             df_historical = pd.DataFrame(columns=["objectid", "name", "yearpublished"])
     else:
-        df_historical = gdrive.load(_service, items[0]["id"])
+        df_historical = gdrive.load(file_id=items[0]["id"])
         existing_imports = df_historical.columns.values.tolist()
         del existing_imports[:3]
 
     # identifying the historical data files
     files_to_import = []
-    items = gdrive.search(_service, query=f'"{path_original}" in parents')
+    items = gdrive.search(query=f'"{gdrive_original}" in parents')
     if not items:
         logger.info(f'Processed Historical rankings loaded. No historical original data found')
         return df_historical
@@ -205,20 +213,20 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
     files_to_import.sort(key=sort_files)
     if not files_to_import:
         if df_historical.empty:
-            st.caption(f'No game info list available, no processed historical game rankings available. '
-                       f'Cannot create historical game rankings data!')
+            # st.caption(f'No game info list available, no processed historical game rankings available. '
+            #            f'Cannot create historical game rankings data!')
             logger.error("No game info list available, no processed historical game rankings available.")
         else:
-            st.caption(f'Importing finished. Number of sampling: {len(existing_imports)}')
+            # st.caption(f'Importing finished. Number of sampling: {len(existing_imports)}')
             logger.info(f'Historical ranking loaded. No new data')
         return df_historical
 
     # each iteration loads a file, and adds the ranking information from it as a column to the historical dataframe
-    progress_text = "Importing new historical game rankings file..."
-    step_all = len(files_to_import) + 1
-    my_bar = st.progress(0, text=progress_text)
+    # progress_text = "Importing new historical game rankings file..."
+    # step_all = len(files_to_import) + 1
+    # my_bar = st.progress(0, text=progress_text)
     for step, i in enumerate(files_to_import):
-        historical_loaded = gdrive.load(_service, i["id"])
+        historical_loaded = gdrive.load(file_id=i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
         name_len = len(column_name)
@@ -226,7 +234,7 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
         historical_loaded.rename(columns={"Rank": column_name}, inplace=True)
         historical_loaded.rename(columns={"ID": "objectid"}, inplace=True)
         df_historical = df_historical.merge(historical_loaded, on="objectid", how="outer")
-        my_bar.progress(step * 100 // step_all, text=progress_text)
+        # my_bar.progress(step * 100 // step_all, text=progress_text)
 
     # reorder columns
     column_list = list(df_historical.columns.values)
@@ -246,35 +254,134 @@ def historic_ranking(_service: googleapiclient.discovery.Resource, path_original
 
     # TODO: games with multiple ID issue
 
-    gdrive.save(_service, path_processed, filename, df_historical, False)
+    gdrive.save(parent_folder=gdrive_processed, filename=filename_historical_ranking_processed,
+                df=df_historical, concat=False)
 
-    my_bar.empty()
-    st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
+    # my_bar.empty()
+    # st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
     logger.info(f'New historical ranking found and imported.')
     return df_historical
 
 
-# noinspection PyRedundantParentheses
-def build_item_db(_service: googleapiclient.discovery.Resource, path_processed: str,
-                  df_new: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
-    filename_game = "game_infoDB.csv"
-    filename_playnum = "playnum_infoDB.csv"
+def get_one_item_info(i):
+    result = import_xml_from_bgg(f'thing?id={i}&stats=1')
+    row_objectid = i
+    try:
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8")
+    except ValueError:
+        logger.error(f'Objectid: {i}. User has related record, however BGG miss this item!')
+        return pd.DataFrame(), pd.DataFrame()
+    row_type = df_item.iloc[0, 0]
+    if row_type not in ("boardgame", "boardgameexpansion"):
+        # this item is not a board game or expansion (BGG has video games and RPG related items as well)
+        return pd.DataFrame(), pd.DataFrame()
+    if "thumbnail" in df_item:
+        row_thumbnail = df_item.iloc[0, 2]
+    else:
+        row_thumbnail = ""
+    if "image" in df_item:
+        row_image = df_item.iloc[0, 3]
+    else:
+        row_image = ""
 
-    q = (f'"{path_processed}" in parents and name contains "{filename_game}"')
-    items = gdrive.search(_service, q)
+    try:
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//yearpublished")
+        row_published = df_item.iloc[0, 0]
+    except ValueError:
+        logger.error(f'Objectid: {i} has no yearpublished info')
+        row_published = 0
+
+    try:
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//minplayers")
+        row_min_player = df_item.iloc[0, 0]
+    except ValueError:
+        logger.error(f'Objectid: {i} has no minplayers info')
+        row_min_player = 0
+
+    try:
+        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//maxplayers")
+        row_max_player = df_item.iloc[0, 0]
+    except ValueError:
+        logger.error(f'Objectid: {i} has no maxplayers info')
+        row_max_player = 0
+
+    df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//name")
+    df_item = df_item.query('type == "primary"')
+    row_name = df_item.iloc[0, 2]
+
+    game_links = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//link")
+    df_item = game_links.query('type == "boardgamedesigner"')
+    row_designer = ', '.join(df_item["value"])
+
+    if "inbound" in game_links:
+        df_item = game_links.query('(type == "boardgameexpansion") and (inbound == "false")')
+        row_expansion_of = ', '.join(df_item["value"])
+    else:
+        df_item = game_links.query('type == "boardgameexpansion"')
+        row_expansion_of = ', '.join(df_item["value"])
+
+    if "inbound" in game_links:
+        df_item = game_links.query('(type == "boardgameexpansion") and (inbound == "true")')
+        row_expansion_for = ', '.join(df_item["value"])
+    else:
+        row_expansion_for = ""
+
+    game_rating = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//average")
+    row_rating = game_rating.iloc[0, 0]
+
+    game_weight = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//averageweight")
+    row_weight = game_weight.iloc[0, 0]
+
+    new_row = {"objectid": row_objectid,
+               "name": row_name,
+               "type": row_type,
+               "year_published": row_published,
+               "weight": row_weight,
+               "rating_average": row_rating,
+               "designer": row_designer,
+               "expansion_of": row_expansion_of,
+               "expansion_for": row_expansion_for,
+               "thumbnail": row_thumbnail,
+               "image": row_image,
+               "min_player": row_min_player,
+               "max_player": row_max_player}
+
+    df_playnum = import_player_number(result, row_objectid)
+    return new_row, df_playnum
+
+
+def build_item_db_background():
+    global gdrive_processed
+    global filename_current_ranking_processed
+
+    q = f'"{gdrive_processed}" in parents and name contains "{filename_current_ranking_processed}"'
+    items_processed = ""
+    while not items_processed:
+        items_processed = gdrive.search(query=q)
+    df = gdrive.load(file_id=items_processed[0]["id"])
+
+
+# noinspection PyRedundantParentheses
+def build_item_db(df_new: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+    global gdrive_processed
+    global filename_game_infodb_processed
+    global filename_playnum_processed
+
+    q = (f'"{gdrive_processed}" in parents and name contains "{filename_game_infodb_processed}"')
+    items = gdrive.search(query=q)
     if not items:
         df_game_info = pd.DataFrame()
     else:
         previous_game_file_id = items[0]["id"]
-        df_game_info = gdrive.load(_service, previous_game_file_id)
+        df_game_info = gdrive.load(file_id=previous_game_file_id)
 
-    q = (f'"{path_processed}" in parents and name contains "{filename_playnum}"')
-    items = gdrive.search(_service, q)
+    q = (f'"{gdrive_processed}" in parents and name contains "{filename_playnum_processed}"')
+    items = gdrive.search(query=q)
     if not items:
         df_playnumdb = pd.DataFrame()
     else:
         previous_play_file_id = items[0]["id"]
-        df_playnumdb = gdrive.load(_service, previous_play_file_id)
+        df_playnumdb = gdrive.load(file_id=previous_play_file_id)
 
     # first we loaded the existing files, so we can still return data if the request is empty
     if df_new.empty:
@@ -284,9 +391,10 @@ def build_item_db(_service: googleapiclient.discovery.Resource, path_processed: 
     possible_new_items_list = possible_new_items["objectid"].tolist()
 
     games_to_import_list = []
+    existing_item_list = df_game_info["objectid"].values
     if not df_game_info.empty:
         for i in possible_new_items_list:
-            if i not in df_game_info["objectid"].values:
+            if i not in existing_item_list:
                 games_to_import_list.append(i)
     else:
         games_to_import_list = possible_new_items_list
@@ -299,102 +407,49 @@ def build_item_db(_service: googleapiclient.discovery.Resource, path_processed: 
     my_bar = st.progress(0, text=progress_text)
     step_all = len(games_to_import_list)
     for step, i in enumerate(games_to_import_list):
-        result = import_xml_from_bgg(f'thing?id={i}&stats=1')
-        row_objectid = i
-
-        df_item = pd.read_xml(StringIO(result), encoding="utf-8")
-        row_type = df_item.iloc[0, 0]
-        if "thumbnail" in df_item:
-            row_thumbnail = df_item.iloc[0, 2]
-        else:
-            row_thumbnail = ""
-        if "image" in df_item:
-            row_image = df_item.iloc[0, 3]
-        else:
-            row_image = ""
-
-        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//yearpublished")
-        row_published = df_item.iloc[0, 0]
-
-        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//minplayers")
-        row_min_player = df_item.iloc[0, 0]
-
-        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//maxplayers")
-        row_max_player = df_item.iloc[0, 0]
-
-        df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//name")
-        df_item = df_item.query('type == "primary"')
-        row_name = df_item.iloc[0, 2]
-
-        game_links = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//link")
-        df_item = game_links.query('type == "boardgamedesigner"')
-        row_designer = ', '.join(df_item["value"])
-
-        if "inbound" in game_links:
-            df_item = game_links.query('(type == "boardgameexpansion") and (inbound == "false")')
-            row_expansion_of = ', '.join(df_item["value"])
-        else:
-            df_item = game_links.query('type == "boardgameexpansion"')
-            row_expansion_of = ', '.join(df_item["value"])
-
-        if "inbound" in game_links:
-            df_item = game_links.query('(type == "boardgameexpansion") and (inbound == "true")')
-            row_expansion_for = ', '.join(df_item["value"])
-        else:
-            row_expansion_for = ""
-
-        game_rating = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//average")
-        row_rating = game_rating.iloc[0, 0]
-
-        game_weight = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//averageweight")
-        row_weight = game_weight.iloc[0, 0]
-
-        new_row = {"objectid": row_objectid,
-                   "name": row_name,
-                   "type": row_type,
-                   "year_published": row_published,
-                   "weight": row_weight,
-                   "rating_average": row_rating,
-                   "designer": row_designer,
-                   "expansion_of": row_expansion_of,
-                   "expansion_for": row_expansion_for,
-                   "thumbnail": row_thumbnail,
-                   "image": row_image,
-                   "min_player": row_min_player,
-                   "max_player": row_max_player}
-
-        if df_game_info.empty:
-            df_game_info = pd.DataFrame(new_row, index=[0])
-        else:
-            df_game_info.loc[len(df_game_info)] = new_row
-        df_playnumdb = import_player_number(df_playnumdb, result, row_objectid)
+        new_item_row, new_playnum_rows = get_one_item_info(i)
+        if len(new_item_row) > 0:
+            if df_game_info.empty:
+                df_game_info = pd.DataFrame(new_item_row, index=[0])
+            else:
+                try:
+                    df_game_info.loc[len(df_game_info)] = new_item_row
+                except ValueError:
+                    print(df_game_info.columns.values)
+                    print("")
+                    print(new_item_row)
+                    exit(0)
+        if len(new_playnum_rows) > 0:
+            if df_playnumdb.empty:
+                df_playnumdb = pd.DataFrame(new_playnum_rows, index=[0])
+            else:
+                df_playnumdb = pd.concat([df_playnumdb, new_playnum_rows], ignore_index=True)
         my_bar.progress((step+1) * 100 // step_all, text=progress_text)
+
     my_bar.empty()
-
-    gdrive.save(_service, path_processed, filename_game, df_game_info, True)
-    gdrive.save(_service, path_processed, filename_playnum, df_playnumdb, True)
-
+    gdrive.save(parent_folder=gdrive_processed, filename=filename_game_infodb_processed, df=df_game_info, concat=True)
+    gdrive.save(parent_folder=gdrive_processed, filename=filename_playnum_processed, df=df_playnumdb, concat=True)
     st.caption(f'Importing finished. {len(games_to_import_list)} new item information saved.')
     return df_game_info, df_playnumdb
 
 
-@timeit
-def build_item_db_game(_service: googleapiclient.discovery.Resource, path_processed: str,
-                       df_new_games: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+@my_logger.timeit
+def build_item_db_game(df_new_games: pd.DataFrame) \
+        -> (pd.DataFrame, pd.DataFrame):
     st.caption("Importing detailed item information for user's collection...")
-    df_game_info, df_playnumdb = build_item_db(_service, path_processed, df_new_games)
+    df_game_info, df_playnumdb = build_item_db(df_new_games)
     return df_game_info, df_playnumdb
 
 
-@timeit
-def build_item_db_play(_service: googleapiclient.discovery.Resource, path_processed: str,
-                       df_new_plays: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+@my_logger.timeit
+def build_item_db_play(df_new_plays: pd.DataFrame) \
+        -> (pd.DataFrame, pd.DataFrame):
     st.caption("Importing detailed item information for user's plays...")
-    df_game_info, df_playnumdb = build_item_db(_service, path_processed, df_new_plays)
+    df_game_info, df_playnumdb = build_item_db(df_new_plays)
     return df_game_info, df_playnumdb
 
 
-def import_player_number(df_playnumdb: pd.DataFrame, result: str, objectid: str) -> pd.DataFrame:
+def import_player_number(result: str, objectid: str) -> pd.DataFrame:
     df_playnum = pd.DataFrame(columns=["objectid", "numplayers", "best", "recommended", "not recommended"])
 
     root = ET.fromstring(result)
@@ -429,14 +484,12 @@ def import_player_number(df_playnumdb: pd.DataFrame, result: str, objectid: str)
             }
             new_row = pd.DataFrame(data)
             df_playnum = pd.concat([df_playnum, new_row], ignore_index=True)
-    df_playnum = pd.concat([df_playnumdb, df_playnum], ignore_index=True)
     return df_playnum
 
 
 # noinspection PyRedundantParentheses
 @st.cache_data(show_spinner=False)
-def user_collection(_service: googleapiclient.discovery.Resource, username: str, path_user: str,
-                    refresh: int) -> pd.DataFrame:
+def user_collection(username: str, refresh: int) -> pd.DataFrame:
     """
     BGG adds all game you have interacted with into a collection
     Interaction: played with, rated, commented
@@ -449,20 +502,27 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
     The XML structure of plays are complicate, and cannot be read at once with Pandas
     So it is parsed twice, into 2 dataframes: df has the game information, df_status has the attributes
     At the end the 2 dataframes are concatenated 1:1
-    :param _service: Google Drive
     :param username: user ID of the specific user
-    :param path_user:
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
     st.caption(f'Importing collection of {username}...')
-    filename = f'collection_{username}.csv'
+    global gdrive_user
+    filename = f'collection_{username}'
 
-    q = (f'"{path_user}" in parents and name contains "{filename}"')
-    item = gdrive.search(_service, query=q)
+    q = (f'"{gdrive_user}" in parents and mimeType = "application/vnd.google-apps.folder" '
+         f'and name contains "{username}"')
+    items = gdrive.search(query=q)
+    if not items:
+        logger.error(f'No folder for user {username}. Cannot save collection.')
+        return pd.DataFrame()
+    user_folder_id = items[0]["id"]
+
+    q = f'"{user_folder_id}" in parents and name contains "{filename}"'
+    item = gdrive.search(query=q)
     if item:
         file_id = item[0]["id"]
-        df = gdrive.load(service=_service, file_name=file_id)
+        df = gdrive.load(file_id=file_id)
         last_imported = item[0]["modifiedTime"]
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
@@ -492,7 +552,7 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
 
     df = df.sort_values("yearpublished").reset_index()
 
-    gdrive.save(_service, path_user, filename, df, False)
+    gdrive.save(parent_folder=user_folder_id, filename=filename, df=df, concat=False)
 
     st.caption(f'Collection imported. Number of games + expansions known: {len(df)}')
     logger.info(f'Collection of {username} imported. Number of items: {len(df)}')
@@ -501,26 +561,32 @@ def user_collection(_service: googleapiclient.discovery.Resource, username: str,
 
 # noinspection PyRedundantParentheses
 @st.cache_data(show_spinner=False)
-def user_plays(_service: googleapiclient.discovery.Resource, username: str, path_user: str,
-               refresh: int) -> pd.DataFrame:
+def user_plays(username: str, refresh: int) -> pd.DataFrame:
     """
     Importing all play instances uf a specific user from BGG website
     Has to import for every user separately, so used every time a new user is chosen
-    :param _service: Google Drive
     :param username: BGG username
-    :param path_user:
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
     st.caption(f'Importing plays of {username}...')
     df = pd.DataFrame()
-    filename = f'plays_{username}.csv'
+    global gdrive_user
+    filename = f'plays_{username}'
 
-    q = (f'"{path_user}" in parents and name contains "{filename}"')
-    item = gdrive.search(_service, query=q)
+    q = (f'"{gdrive_user}" in parents and mimeType = "application/vnd.google-apps.folder" '
+         f'and name contains "{username}"')
+    items = gdrive.search(query=q)
+    if not items:
+        logger.error(f'No folder for user {username}. Cannot save collection.')
+        return pd.DataFrame()
+    user_folder_id = items[0]["id"]
+
+    q = (f'"{user_folder_id}" in parents and name contains "{filename}"')
+    item = gdrive.search(query=q)
     if item:
         file_id = item[0]["id"]
-        df = gdrive.load(service=_service, file_name=file_id)
+        df = gdrive.load(file_id=file_id)
         last_imported = item[0]["modifiedTime"]
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
@@ -577,7 +643,7 @@ def user_plays(_service: googleapiclient.discovery.Resource, username: str, path
         df_play = df_play.drop(["players"], axis=1)
     df_play = df_play.sort_values(by=["date"]).reset_index()
 
-    gdrive.save(_service, path_user, filename, df_play, True)
+    gdrive.save(parent_folder=user_folder_id, filename=filename, df=df_play, concat=True)
 
     step += 1
     my_bar.progress(step * 100 // step_all, text=progress_text)
