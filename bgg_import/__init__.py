@@ -253,7 +253,6 @@ def current_ranking(current_ranking: pd.DataFrame) \
             # initial loading already loaded it.
             return current_ranking
 
-    print(items_source)
     df = gdrive.load_zip(file_id=items_source[0]["id"])
     df = df[["id", "name", "yearpublished", "rank", "abstracts_rank", "cgs_rank", "childrensgames_rank",
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
@@ -342,7 +341,6 @@ def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataF
     # step_all = len(files_to_import) + 1
     # my_bar = st.progress(0, text=progress_text)
     for step, i in enumerate(files_to_import):
-        print(i["name"])
         historical_loaded = gdrive.load_zip(file_id=i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
