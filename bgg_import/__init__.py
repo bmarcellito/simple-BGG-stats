@@ -28,8 +28,8 @@ def init_load() -> None:
         for item in items:
             if item["name"] == "current_ranking.zip":
                 st.session_state.global_fresh_ranking = gdrive.load_zip(item["id"])
-        st.session_state.global_fresh_ranking.drop_duplicates(subset=["objectid"], keep="last",
-                                                              ignore_index=True, inplace=True)
+                st.session_state.global_fresh_ranking.drop_duplicates(subset=["objectid"], keep="last",
+                                                                      ignore_index=True, inplace=True)
 
     def init_game_infodb() -> None:
         for item in items:
