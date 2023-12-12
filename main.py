@@ -28,8 +28,8 @@ def import_globals() -> None:
 
 
 @timeit
-def import_user_data(username: str, check_user_cache: str, refresh: int) -> None:
-    st.session_state.my_collection = bgg_import.user_collection(username=username, check_user_cache=check_user_cache,
+def import_user_data(username: str, user_page: str, refresh: int) -> None:
+    st.session_state.my_collection = bgg_import.user_collection(username=username, user_page=user_page,
                                                                 refresh=refresh)
     st.session_state.my_plays = bgg_import.user_plays(username, refresh)
     while (("my_collection" not in st.session_state) and ("my_plays" not in st.session_state)
@@ -115,13 +115,13 @@ def main():
                 with st.empty():
                     st.caption("Loading cache...")
                     while "check_user_cache" not in st.session_state:
-                    # Check user cache is still loading - has to wait a bit
+                        # Check user cache is still loading - has to wait a bit
                         sleep(1)
                 st.session_state.user_state = "Loading"
-                st.session_state.user_state, st.session_state.check_user_cache, st.session_state.check_user_cache = \
+                st.session_state.user_state, st.session_state.user_page, st.session_state.check_user_cache = \
                     bgg_import.check_user(username=bgg_username, df_check_user_cache=st.session_state.check_user_cache)
                 if st.session_state.user_state == "User found":
-                    import_user_data(bgg_username, st.session_state.check_user_cache, refresh_user_data)
+                    import_user_data(bgg_username, st.session_state.user_page, refresh_user_data)
                     st.session_state.user_state = "Loaded"
                     st.session_state.refresh_button_disabled = False
                 else:

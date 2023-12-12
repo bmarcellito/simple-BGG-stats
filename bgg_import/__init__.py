@@ -30,43 +30,34 @@ def init_load() -> None:
                 st.session_state.global_fresh_ranking = gdrive.load_zip(item["id"])
         st.session_state.global_fresh_ranking.drop_duplicates(subset=["objectid"], keep="last",
                                                               ignore_index=True, inplace=True)
-        if "global_fresh_ranking" not in st.session_state:
-            st.session_state.global_fresh_ranking = pd.DataFrame()
 
     def init_game_infodb() -> None:
         for item in items:
             if item["name"] == "game_infoDB.zip":
                 st.session_state.global_game_infodb = gdrive.load_zip(item["id"])
-        st.session_state.global_game_infodb.drop_duplicates(subset=["objectid"], keep="last",
-                                                            ignore_index=True, inplace=True)
-        if "global_game_infodb" not in st.session_state:
-            st.session_state.global_game_infodb = pd.DataFrame()
+                st.session_state.global_game_infodb.drop_duplicates(subset=["objectid"], keep="last",
+                                                                    ignore_index=True, inplace=True)
 
     def init_historic_ranking() -> None:
         for item in items:
             if item["name"] == "historical_ranking.zip":
                 st.session_state.global_historic_ranking = gdrive.load_zip(item["id"])
-        st.session_state.global_historic_ranking.drop_duplicates(subset=["objectid"], keep="last",
-                                                                 ignore_index=True, inplace=True)
-        if "global_historic_ranking" not in st.session_state:
-            st.session_state.global_historic_ranking = pd.DataFrame()
+                st.session_state.global_historic_ranking.drop_duplicates(subset=["objectid"], keep="last",
+                                                                         ignore_index=True, inplace=True)
 
     def init_play_numdb() -> None:
         for item in items:
             if item["name"] == "playnum_infoDB.zip":
                 st.session_state.global_play_numdb = gdrive.load_zip(item["id"])
-        st.session_state.global_play_numdb.drop_duplicates(subset=["objectid", "numplayers"], keep="last",
-                                                           ignore_index=True, inplace=True)
-        if "global_play_numdb" not in st.session_state:
-            st.session_state.global_play_numdb = pd.DataFrame()
+                st.session_state.global_play_numdb.drop_duplicates(subset=["objectid", "numplayers"], keep="last",
+                                                                   ignore_index=True, inplace=True)
 
     def init_user_cache() -> None:
         for item in items:
             if item["name"] == "check_user_cache.zip":
                 st.session_state.check_user_cache = gdrive.load_zip(item["id"])
-        st.session_state.check_user_cache.drop_duplicates(keep="last", ignore_index=True, inplace=True)
-        if "check_user_cache" not in st.session_state:
-            st.session_state.check_user_cache = pd.DataFrame()
+                st.session_state.check_user_cache.drop_duplicates(subset=["username"], keep="last",
+                                                                  ignore_index=True, inplace=True)
 
     q = f'"{gdrive_processed}" in parents'
     items = gdrive.search(query=q)
@@ -98,10 +89,21 @@ def init_load() -> None:
         thread_current_ranking.join()
         thread_game_infodb.join()
         thread_historic_ranking.join()
+
+    if "global_fresh_ranking" not in st.session_state:
+        st.session_state.global_fresh_ranking = pd.DataFrame()
+    if "global_game_infodb" not in st.session_state:
+        st.session_state.global_game_infodb = pd.DataFrame()
+    if "global_historic_ranking" not in st.session_state:
+        st.session_state.global_historic_ranking = pd.DataFrame()
+    if "global_play_numdb" not in st.session_state:
+        st.session_state.global_play_numdb = pd.DataFrame()
+    if "check_user_cache" not in st.session_state:
+        st.session_state.check_user_cache = pd.DataFrame()
+
     return None
 
 
-@timeit
 def import_xml_from_bgg(link: str) -> str:
     # HTTP request from boardgamegeek.com
     while True:
@@ -126,7 +128,6 @@ def import_xml_from_bgg(link: str) -> str:
     return response.content.decode(encoding="utf-8")
 
 
-@timeit
 def check_user(username: str, df_check_user_cache: pd.DataFrame) -> (str, str, pd.DataFrame):
     st.caption("Checking user on BGG...")
     if username == "":
@@ -252,7 +253,8 @@ def current_ranking(current_ranking: pd.DataFrame) \
             # initial loading already loaded it.
             return current_ranking
 
-    df = gdrive.load_csv(file_id=items_source[0]["id"])
+    print(items_source)
+    df = gdrive.load_zip(file_id=items_source[0]["id"])
     df = df[["id", "name", "yearpublished", "rank", "abstracts_rank", "cgs_rank", "childrensgames_rank",
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
     df.rename(columns={"id": "objectid"}, inplace=True)
@@ -340,7 +342,8 @@ def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataF
     # step_all = len(files_to_import) + 1
     # my_bar = st.progress(0, text=progress_text)
     for step, i in enumerate(files_to_import):
-        historical_loaded = gdrive.load_csv(file_id=i["id"])
+        print(i["name"])
+        historical_loaded = gdrive.load_zip(file_id=i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
         name_len = len(column_name)
@@ -487,7 +490,10 @@ def build_item_db(df_new: pd.DataFrame, global_game_infodb: pd.DataFrame, global
     possible_new_items = df_new.groupby("objectid").count().reset_index()
     possible_new_items_list = possible_new_items["objectid"].tolist()
     games_to_import_list = []
-    existing_item_list = df_game_info["objectid"].tolist()
+    if len(df_game_info) > 0:
+        existing_item_list = df_game_info["objectid"].tolist()
+    else:
+        existing_item_list = []
     if not df_game_info.empty:
         for i in possible_new_items_list:
             if i not in existing_item_list:
@@ -536,7 +542,6 @@ def build_item_db(df_new: pd.DataFrame, global_game_infodb: pd.DataFrame, global
     return df_game_info, df_playnumdb
 
 
-@timeit
 def build_item_db_game(df_new_games: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
         -> (pd.DataFrame, pd.DataFrame):
     if df_new_games.empty:
@@ -546,7 +551,6 @@ def build_item_db_game(df_new_games: pd.DataFrame, global_game_infodb: pd.DataFr
     return df_game_info, df_playnumdb
 
 
-@timeit
 def build_item_db_play(df_new_plays: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
         -> (pd.DataFrame, pd.DataFrame):
     if df_new_plays.empty:
@@ -596,7 +600,7 @@ def import_player_number(result: str, objectid: str) -> pd.DataFrame:
 
 # noinspection PyRedundantParentheses
 @st.cache_data(show_spinner=False)
-def user_collection(username: str, check_user_cache: str, refresh: int) -> pd.DataFrame:
+def user_collection(username: str, user_page: str, refresh: int) -> pd.DataFrame:
     """
     BGG adds all game you have interacted with into a collection
     Interaction: played with, rated, commented
@@ -639,10 +643,10 @@ def user_collection(username: str, check_user_cache: str, refresh: int) -> pd.Da
             logger.info(f'Collection of {username} loaded. It is {how_fresh} old.')
             return df
 
-    if check_user_cache == "":
+    if len(user_page) == 0:
         result = import_xml_from_bgg(f'collection?username={username}&stats=1')
     else:
-        result = check_user_cache
+        result = user_page
 
     # Game name and general game information
     df = pd.read_xml(StringIO(result))

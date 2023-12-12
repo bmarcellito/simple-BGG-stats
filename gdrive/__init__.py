@@ -140,6 +140,7 @@ def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: list) -> s
         service.files().delete(fileId=token).execute()
 
     service = authenticate()
+    my_token = create_token()
     q = f'"{parent_folder}" in parents and name contains "{filename}"'
     items = search(query=q)
     if not items:
@@ -149,7 +150,6 @@ def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: list) -> s
     else:
         # overwrite existing file
         existing_file_id = items[0]["id"]
-        my_token = create_token()
         df_existing = load_zip(file_id=items[0]["id"])
         if len(concat) > 0:
             df_merged = pd.concat([df_existing, df], ignore_index=True)
@@ -158,8 +158,8 @@ def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: list) -> s
             df_merged = df_existing
         service.files().delete(fileId=existing_file_id).execute()
         file_id = save_new_zip_file(service=service, parent_folder=parent_folder, file_name=filename, df=df_merged)
-        delete_token(my_token)
         logger.info(f'File overwritten: {filename}')
+    delete_token(my_token)
     return file_id
 
 
