@@ -1,15 +1,16 @@
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 from io import StringIO
 from xml.etree import ElementTree as ET
 import pandas as pd
 import streamlit as st
+from threading import Thread
+from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 import gdrive
-import logging
-import my_logger
+from my_logger import logger, timeit
 
 gdrive_original = st.secrets["gdrive_original"]
 gdrive_processed = st.secrets["gdrive_processed"]
@@ -20,16 +21,87 @@ filename_historical_ranking_processed = "historical_ranking"
 filename_game_infodb_processed = "game_infoDB"
 filename_playnum_processed = "playnum_infoDB"
 
-logger = my_logger.getlogger(__name__)
-logger.propagate = False
-logger.setLevel(logging.INFO)
 
-
-@my_logger.timeit
+@timeit
 def init_load() -> None:
-    pass
+    def init_current_ranking() -> None:
+        for item in items:
+            if item["name"] == "current_ranking.zip":
+                st.session_state.global_fresh_ranking = gdrive.load_zip(item["id"])
+        st.session_state.global_fresh_ranking.drop_duplicates(subset=["objectid"], keep="last",
+                                                              ignore_index=True, inplace=True)
+        if "global_fresh_ranking" not in st.session_state:
+            st.session_state.global_fresh_ranking = pd.DataFrame()
+
+    def init_game_infodb() -> None:
+        for item in items:
+            if item["name"] == "game_infoDB.zip":
+                st.session_state.global_game_infodb = gdrive.load_zip(item["id"])
+        st.session_state.global_game_infodb.drop_duplicates(subset=["objectid"], keep="last",
+                                                            ignore_index=True, inplace=True)
+        if "global_game_infodb" not in st.session_state:
+            st.session_state.global_game_infodb = pd.DataFrame()
+
+    def init_historic_ranking() -> None:
+        for item in items:
+            if item["name"] == "historical_ranking.zip":
+                st.session_state.global_historic_ranking = gdrive.load_zip(item["id"])
+        st.session_state.global_historic_ranking.drop_duplicates(subset=["objectid"], keep="last",
+                                                                 ignore_index=True, inplace=True)
+        if "global_historic_ranking" not in st.session_state:
+            st.session_state.global_historic_ranking = pd.DataFrame()
+
+    def init_play_numdb() -> None:
+        for item in items:
+            if item["name"] == "playnum_infoDB.zip":
+                st.session_state.global_play_numdb = gdrive.load_zip(item["id"])
+        st.session_state.global_play_numdb.drop_duplicates(subset=["objectid", "numplayers"], keep="last",
+                                                           ignore_index=True, inplace=True)
+        if "global_play_numdb" not in st.session_state:
+            st.session_state.global_play_numdb = pd.DataFrame()
+
+    def init_user_cache() -> None:
+        for item in items:
+            if item["name"] == "check_user_cache.zip":
+                st.session_state.check_user_cache = gdrive.load_zip(item["id"])
+        st.session_state.check_user_cache.drop_duplicates(keep="last", ignore_index=True, inplace=True)
+        if "check_user_cache" not in st.session_state:
+            st.session_state.check_user_cache = pd.DataFrame()
+
+    q = f'"{gdrive_processed}" in parents'
+    items = gdrive.search(query=q)
+    if not items:
+        pass
+    else:
+        thread_current_ranking = Thread(target=init_current_ranking)
+        add_script_run_ctx(thread_current_ranking)
+        thread_current_ranking.start()
+
+        thread_game_infodb = Thread(target=init_game_infodb)
+        add_script_run_ctx(thread_game_infodb)
+        thread_game_infodb.start()
+
+        thread_historic_ranking = Thread(target=init_historic_ranking)
+        add_script_run_ctx(thread_historic_ranking)
+        thread_historic_ranking.start()
+
+        thread_play_numdb = Thread(target=init_play_numdb)
+        add_script_run_ctx(thread_play_numdb)
+        thread_play_numdb.start()
+
+        thread_user_cache = Thread(target=init_user_cache)
+        add_script_run_ctx(thread_user_cache)
+        thread_user_cache.start()
+
+        thread_user_cache.join()
+        thread_play_numdb.join()
+        thread_current_ranking.join()
+        thread_game_infodb.join()
+        thread_historic_ranking.join()
+    return None
 
 
+@timeit
 def import_xml_from_bgg(link: str) -> str:
     # HTTP request from boardgamegeek.com
     while True:
@@ -54,19 +126,33 @@ def import_xml_from_bgg(link: str) -> str:
     return response.content.decode(encoding="utf-8")
 
 
-@st.cache_data(show_spinner=False)
-def check_user(username: str) -> str:
+@timeit
+def check_user(username: str, df_check_user_cache: pd.DataFrame) -> (str, str, pd.DataFrame):
     st.caption("Checking user on BGG...")
+    if username == "":
+        return "Init", df_check_user_cache
+
+    # check whether we have successfully found this username in the last month
+    if not df_check_user_cache.empty:
+        user_rows = df_check_user_cache.query(f'username == "{username}"').reset_index()
+        if not user_rows.empty:
+            old_enough = str(datetime.date(datetime.now() - timedelta(30)))
+            if old_enough < user_rows.at[0, "last_checked"]:
+                st.caption("User found in cache!")
+                return "User found", "", df_check_user_cache
+
+    # this user has not been checked in the last month
     global gdrive_user
+    global gdrive_processed
     result = import_xml_from_bgg(f'collection?username={username}')
     try:
         df = pd.read_xml(StringIO(result))
     except ValueError:
         st.caption(f'No user found on bgg with this username: {username}')
-        return "No valid user"
+        return "No valid user", "", df_check_user_cache
     if "message" in df.columns:
         st.caption(f'No user found on bgg with this username: {username}')
-        return "No valid user"
+        return "No valid user", "", df_check_user_cache
 
     q = (f'"{gdrive_user}" in parents and mimeType = "application/vnd.google-apps.folder" '
          f'and name contains "{username}"')
@@ -75,7 +161,19 @@ def check_user(username: str) -> str:
         gdrive.create_folder(parent_folder=gdrive_user, folder_name=username)
         logger.info(f'Folder created: {username}')
     st.caption("User found on BGG!")
-    return "User found"
+
+    # add user info to cache
+    new_cache_row = pd.DataFrame(data={"username": username, "last_checked": str(datetime.date(datetime.now()))},
+                                 index=[0])
+
+    if len(df_check_user_cache) == 0:
+        df_check_user_cache = new_cache_row
+    else:
+        df_check_user_cache = pd.concat([df_check_user_cache, new_cache_row], ignore_index=True)
+        df_check_user_cache.drop_duplicates(subset=["username"], keep="last", inplace=True)
+    gdrive.save_background(parent_folder=gdrive_processed, filename="check_user_cache",
+                           df=df_check_user_cache, concat=["username"])
+    return "User found", result, df_check_user_cache
 
 
 def delete_user_info(username: str) -> None:
@@ -100,7 +198,8 @@ def delete_user_info(username: str) -> None:
 
 
 # noinspection PyRedundantParentheses
-def current_ranking() \
+@timeit
+def current_ranking(current_ranking: pd.DataFrame) \
         -> pd.DataFrame:
     """
     There is no API on BGG for downloading all games and their current ranking
@@ -139,31 +238,34 @@ def current_ranking() \
         return pd.DataFrame()
 
     if (not data_source) and data_processed:
-        df = gdrive.load(file_id=items_processed[0]["id"])
+        # df = gdrive.load_zip(file_id=items_processed[0]["id"])
         # st.caption(f'Importing finished. Number of items: {len(df)}')
-        logger.info(f'Processed current ranking data loaded. No original data founded')
-        return df
+        # logger.info(f'Processed current ranking data loaded. No original data founded')
+        # initial loading already loaded it.
+        return current_ranking
 
     if data_source and data_processed:
         if process_last_modified > source_last_modified:
-            df = gdrive.load(file_id=items_processed[0]["id"])
+            # df = gdrive.load_zip(file_id=items_processed[0]["id"])
             # st.caption(f'Importing finished. Number of items: {len(df)}')
-            logger.info(f'Processed current ranking data loaded. No new original data founded')
-            return df
+            # logger.info(f'Processed current ranking data loaded. No new original data founded')
+            # initial loading already loaded it.
+            return current_ranking
 
-    df = gdrive.load(file_id=items_source[0]["id"])
+    df = gdrive.load_csv(file_id=items_source[0]["id"])
     df = df[["id", "name", "yearpublished", "rank", "abstracts_rank", "cgs_rank", "childrensgames_rank",
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
     df.rename(columns={"id": "objectid"}, inplace=True)
 
-    gdrive.save(parent_folder=gdrive_processed, filename=filename_current_ranking_processed, df=df, concat=False)
+    gdrive.overwrite_background(parent_folder=gdrive_processed, filename=filename_current_ranking_processed, df=df)
     # st.caption(f'Importing finished. Number of items: {len(df)}')
     logger.info(f'Found new current ranking data. It is imported. Number of items: {len(df)}')
     return df
 
 
 # noinspection PyRedundantParentheses
-def historic_ranking(game_list: pd.DataFrame) -> pd.DataFrame:
+@timeit
+def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
     """
     Importing the game rankings from multiple different dates
     Historic game ranking information cannot be accessed via API at BGG
@@ -173,6 +275,7 @@ def historic_ranking(game_list: pd.DataFrame) -> pd.DataFrame:
     The game IDs and names come from the game DB (downloaded by a different function)
     Changes monthly. User independent, enough to load at the start
     :param game_list: list of all games in a dataframe
+    :param current_historic_ranking: current data available in the memory
     :return: imported data in dataframe
     """
     def sort_files(sort_by):
@@ -183,6 +286,7 @@ def historic_ranking(game_list: pd.DataFrame) -> pd.DataFrame:
     global gdrive_processed
     global filename_historical_ranking_processed
 
+    """
     q = (f'"{gdrive_processed}" in parents and name contains "{filename_historical_ranking_processed}"')
     items = gdrive.search(query=q)
     if not items:
@@ -193,9 +297,19 @@ def historic_ranking(game_list: pd.DataFrame) -> pd.DataFrame:
         else:
             df_historical = pd.DataFrame(columns=["objectid", "name", "yearpublished"])
     else:
-        df_historical = gdrive.load(file_id=items[0]["id"])
+        df_historical = gdrive.load_zip(file_id=items[0]["id"])
         existing_imports = df_historical.columns.values.tolist()
         del existing_imports[:3]
+    """
+    if len(current_historic_ranking) > 0:
+        df_historical = current_historic_ranking
+        existing_imports = df_historical.columns.values.tolist()
+    else:
+        if len(game_list) > 0:
+            df_historical = game_list[["objectid", "name", "yearpublished"]].set_index("objectid")
+        else:
+            df_historical = pd.DataFrame(columns=["objectid", "name", "yearpublished"])
+        existing_imports = []
 
     # identifying the historical data files
     files_to_import = []
@@ -226,7 +340,7 @@ def historic_ranking(game_list: pd.DataFrame) -> pd.DataFrame:
     # step_all = len(files_to_import) + 1
     # my_bar = st.progress(0, text=progress_text)
     for step, i in enumerate(files_to_import):
-        historical_loaded = gdrive.load(file_id=i["id"])
+        historical_loaded = gdrive.load_csv(file_id=i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
         name_len = len(column_name)
@@ -254,8 +368,8 @@ def historic_ranking(game_list: pd.DataFrame) -> pd.DataFrame:
 
     # TODO: games with multiple ID issue
 
-    gdrive.save(parent_folder=gdrive_processed, filename=filename_historical_ranking_processed,
-                df=df_historical, concat=False)
+    gdrive.overwrite_background(parent_folder=gdrive_processed, filename=filename_historical_ranking_processed,
+                                df=df_historical)
 
     # my_bar.empty()
     # st.caption(f'Importing finished. Number of sampling: {len(files_to_import)}')
@@ -358,40 +472,22 @@ def build_item_db_background():
     items_processed = ""
     while not items_processed:
         items_processed = gdrive.search(query=q)
-    df = gdrive.load(file_id=items_processed[0]["id"])
 
 
 # noinspection PyRedundantParentheses
-def build_item_db(df_new: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+def build_item_db(df_new: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) -> \
+        (pd.DataFrame, pd.DataFrame):
     global gdrive_processed
     global filename_game_infodb_processed
     global filename_playnum_processed
 
-    q = (f'"{gdrive_processed}" in parents and name contains "{filename_game_infodb_processed}"')
-    items = gdrive.search(query=q)
-    if not items:
-        df_game_info = pd.DataFrame()
-    else:
-        previous_game_file_id = items[0]["id"]
-        df_game_info = gdrive.load(file_id=previous_game_file_id)
-
-    q = (f'"{gdrive_processed}" in parents and name contains "{filename_playnum_processed}"')
-    items = gdrive.search(query=q)
-    if not items:
-        df_playnumdb = pd.DataFrame()
-    else:
-        previous_play_file_id = items[0]["id"]
-        df_playnumdb = gdrive.load(file_id=previous_play_file_id)
-
-    # first we loaded the existing files, so we can still return data if the request is empty
-    if df_new.empty:
-        return df_game_info, df_playnumdb
+    df_game_info = global_game_infodb
+    df_playnumdb = global_play_numdb
 
     possible_new_items = df_new.groupby("objectid").count().reset_index()
     possible_new_items_list = possible_new_items["objectid"].tolist()
-
     games_to_import_list = []
-    existing_item_list = df_game_info["objectid"].values
+    existing_item_list = df_game_info["objectid"].tolist()
     if not df_game_info.empty:
         for i in possible_new_items_list:
             if i not in existing_item_list:
@@ -427,25 +523,36 @@ def build_item_db(df_new: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
         my_bar.progress((step+1) * 100 // step_all, text=progress_text)
 
     my_bar.empty()
-    gdrive.save(parent_folder=gdrive_processed, filename=filename_game_infodb_processed, df=df_game_info, concat=True)
-    gdrive.save(parent_folder=gdrive_processed, filename=filename_playnum_processed, df=df_playnumdb, concat=True)
+    gdrive.save_background(parent_folder=gdrive_processed, filename=filename_game_infodb_processed,
+                           df=df_game_info, concat=["objectid"])
+    gdrive.save_background(parent_folder=gdrive_processed, filename=filename_playnum_processed,
+                           df=df_playnumdb, concat=["objectid", "numplayers"])
+    df_game_info = pd.concat([global_game_infodb, df_game_info], ignore_index=True)
+    df_game_info.drop_duplicates(subset=["objectid"], keep="last", ignore_index=True, inplace=True)
+    df_playnumdb = pd.concat([global_play_numdb, df_playnumdb], ignore_index=True)
+    df_playnumdb.drop_duplicates(subset=["objectid", "numplayers"], keep="last", ignore_index=True, inplace=True)
+
     st.caption(f'Importing finished. {len(games_to_import_list)} new item information saved.')
     return df_game_info, df_playnumdb
 
 
-@my_logger.timeit
-def build_item_db_game(df_new_games: pd.DataFrame) \
+@timeit
+def build_item_db_game(df_new_games: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
         -> (pd.DataFrame, pd.DataFrame):
+    if df_new_games.empty:
+        return global_game_infodb, global_play_numdb
     st.caption("Importing detailed item information for user's collection...")
-    df_game_info, df_playnumdb = build_item_db(df_new_games)
+    df_game_info, df_playnumdb = build_item_db(df_new_games, global_game_infodb, global_play_numdb)
     return df_game_info, df_playnumdb
 
 
-@my_logger.timeit
-def build_item_db_play(df_new_plays: pd.DataFrame) \
+@timeit
+def build_item_db_play(df_new_plays: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
         -> (pd.DataFrame, pd.DataFrame):
+    if df_new_plays.empty:
+        return global_game_infodb, global_play_numdb
     st.caption("Importing detailed item information for user's plays...")
-    df_game_info, df_playnumdb = build_item_db(df_new_plays)
+    df_game_info, df_playnumdb = build_item_db(df_new_plays, global_game_infodb, global_play_numdb)
     return df_game_info, df_playnumdb
 
 
@@ -489,7 +596,7 @@ def import_player_number(result: str, objectid: str) -> pd.DataFrame:
 
 # noinspection PyRedundantParentheses
 @st.cache_data(show_spinner=False)
-def user_collection(username: str, refresh: int) -> pd.DataFrame:
+def user_collection(username: str, check_user_cache: str, refresh: int) -> pd.DataFrame:
     """
     BGG adds all game you have interacted with into a collection
     Interaction: played with, rated, commented
@@ -503,6 +610,7 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
     So it is parsed twice, into 2 dataframes: df has the game information, df_status has the attributes
     At the end the 2 dataframes are concatenated 1:1
     :param username: user ID of the specific user
+    :param check_user_cache: list of previously verified usernames
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
@@ -522,7 +630,7 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
     item = gdrive.search(query=q)
     if item:
         file_id = item[0]["id"]
-        df = gdrive.load(file_id=file_id)
+        df = gdrive.load_zip(file_id=file_id)
         last_imported = item[0]["modifiedTime"]
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
@@ -531,7 +639,10 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
             logger.info(f'Collection of {username} loaded. It is {how_fresh} old.')
             return df
 
-    result = import_xml_from_bgg(f'collection?username={username}&stats=1')
+    if check_user_cache == "":
+        result = import_xml_from_bgg(f'collection?username={username}&stats=1')
+    else:
+        result = check_user_cache
 
     # Game name and general game information
     df = pd.read_xml(StringIO(result))
@@ -541,7 +652,10 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
     df["yearpublished"] = df["yearpublished"].astype(int)
 
     # User ratings
-    df_rating = pd.read_xml(StringIO(result), xpath=".//rating")
+    try:
+        df_rating = pd.read_xml(StringIO(result), xpath=".//rating")
+    except ValueError:
+        logger.error(f'df_rating xpath //rating error.')
     df_rating = pd.DataFrame(df_rating["value"])
     df_rating.rename(columns={"value": "user_rating"}, inplace=True)
     df = pd.concat([df, df_rating], axis=1).reset_index(drop=True)
@@ -551,8 +665,7 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
     df = pd.concat([df, df_status], axis=1).reset_index(drop=True)
 
     df = df.sort_values("yearpublished").reset_index()
-
-    gdrive.save(parent_folder=user_folder_id, filename=filename, df=df, concat=False)
+    gdrive.overwrite_background(parent_folder=user_folder_id, filename=filename, df=df)
 
     st.caption(f'Collection imported. Number of games + expansions known: {len(df)}')
     logger.info(f'Collection of {username} imported. Number of items: {len(df)}')
@@ -586,7 +699,7 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
     item = gdrive.search(query=q)
     if item:
         file_id = item[0]["id"]
-        df = gdrive.load(file_id=file_id)
+        df = gdrive.load_zip(file_id=file_id)
         last_imported = item[0]["modifiedTime"]
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
@@ -643,7 +756,7 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
         df_play = df_play.drop(["players"], axis=1)
     df_play = df_play.sort_values(by=["date"]).reset_index()
 
-    gdrive.save(parent_folder=user_folder_id, filename=filename, df=df_play, concat=True)
+    gdrive.save_background(parent_folder=user_folder_id, filename=filename, df=df_play, concat=["id"])
 
     step += 1
     my_bar.progress(step * 100 // step_all, text=progress_text)

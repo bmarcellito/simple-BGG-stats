@@ -1,6 +1,9 @@
 import io
 from datetime import datetime, timedelta
 
+from threading import Thread, Lock
+from streamlit.runtime.scriptrunner import add_script_run_ctx
+
 import googleapiclient.discovery
 import pandas as pd
 import streamlit as st
@@ -9,12 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 
-import logging
-import my_logger
-
-logger = my_logger.getlogger(__name__)
-logger.propagate = False
-logger.setLevel(logging.INFO)
+from my_logger import logger
 
 extension_normal = ".csv"
 extension_compressed = ".zip"
@@ -56,7 +54,7 @@ def create_folder(parent_folder: str, folder_name: str) -> str:
 def save_new_file(service: googleapiclient.discovery.Resource, parent_folder: str,
                   file_name: str, df: pd.DataFrame) -> str:
     file_metadata = {
-        'name': file_name,
+        'name': file_name+extension_normal,
         'parents': [parent_folder],
         'mimeType': 'text / csv'
     }
@@ -64,6 +62,23 @@ def save_new_file(service: googleapiclient.discovery.Resource, parent_folder: st
     df.to_csv(buffer, sep=",", index=False, encoding="UTF-8")
     buffer.seek(0)
     media_content = MediaIoBaseUpload(buffer, mimetype='text / csv')
+    file = service.files().create(body=file_metadata, media_body=media_content, fields="id").execute()
+    file_id = file.get("id")
+    return file_id
+
+
+def save_new_zip_file(service: googleapiclient.discovery.Resource, parent_folder: str,
+                      file_name: str, df: pd.DataFrame):
+    file_metadata = {
+        'name': file_name+extension_compressed,
+        'parents': [parent_folder],
+        'mimeType': 'application/zip'
+    }
+    buffer = io.BytesIO()
+    df.to_csv(buffer, sep=",", index=False, encoding="UTF-8",
+              compression={'method': 'zip', "archive_name": f"{file_name}.csv", 'compresslevel': 6})
+    buffer.seek(0)
+    media_content = MediaIoBaseUpload(buffer, mimetype='application/zip')
     file = service.files().create(body=file_metadata, media_body=media_content, fields="id").execute()
     file_id = file.get("id")
     return file_id
@@ -81,7 +96,7 @@ def search(query: str):
     return results.get('files', [])
 
 
-def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: bool) -> str:
+def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: list) -> str:
     def create_token() -> str:
         # create token
         token = str(datetime.now())
@@ -125,32 +140,62 @@ def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: bool) -> s
         service.files().delete(fileId=token).execute()
 
     service = authenticate()
-    full_filename = filename+extension_normal
-    q = f'"{parent_folder}" in parents and name contains "{full_filename}"'
+    q = f'"{parent_folder}" in parents and name contains "{filename}"'
     items = search(query=q)
     if not items:
         # create new file
-        file_id = save_new_file(service=service, parent_folder=parent_folder,
-                                file_name=full_filename, df=df)
-        logger.info(f'File saved: {full_filename}')
+        file_id = save_new_zip_file(service=service, parent_folder=parent_folder, file_name=filename, df=df)
+        logger.info(f'File saved: {filename}')
     else:
         # overwrite existing file
         existing_file_id = items[0]["id"]
         my_token = create_token()
-        if concat:
-            df_existing = load(file_id=items[0]["id"])
+        df_existing = load_zip(file_id=items[0]["id"])
+        if len(concat) > 0:
             df_merged = pd.concat([df_existing, df], ignore_index=True)
-            df_merged = df_merged.drop_duplicates()
+            df_merged.drop_duplicates(subset=concat, keep="last", inplace=True, ignore_index=True)
         else:
-            df_merged = df
+            df_merged = df_existing
         service.files().delete(fileId=existing_file_id).execute()
-        file_id = save_new_file(service=service, parent_folder=parent_folder, file_name=full_filename, df=df_merged)
+        file_id = save_new_zip_file(service=service, parent_folder=parent_folder, file_name=filename, df=df_merged)
         delete_token(my_token)
-        logger.info(f'File overwritten: {full_filename}')
+        logger.info(f'File overwritten: {filename}')
     return file_id
 
 
-def load(file_id: str) -> pd.DataFrame:
+def save_background(parent_folder: str, filename: str, df: pd.DataFrame, concat: list) -> str:
+    thread_global_import = Thread(target=save, args=(parent_folder, filename, df, concat))
+    add_script_run_ctx(thread_global_import)
+    thread_global_import.start()
+    return ""
+
+
+def overwrite_background(parent_folder: str, filename: str, df: pd.DataFrame) -> str:
+    thread_global_import = Thread(target=save, args=(parent_folder, filename, df, []))
+    add_script_run_ctx(thread_global_import)
+    thread_global_import.start()
+    return ""
+
+
+# @my_logger.timeit
+def load_zip(file_id: str) -> pd.DataFrame:
+    service = authenticate()
+    try:
+        request = service.files().get_media(fileId=file_id)
+        file = io.BytesIO()
+        downloader = MediaIoBaseDownload(file, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+    except HttpError as error:
+        logger.error(f'While loading file, an error occurred: {error}')
+        file = None
+    source = io.BytesIO(file.getvalue())
+    df = pd.read_csv(source, compression={'method': 'zip'})
+    return df
+
+
+def load_csv(file_id: str) -> pd.DataFrame:
     service = authenticate()
     try:
         request = service.files().get_media(fileId=file_id)

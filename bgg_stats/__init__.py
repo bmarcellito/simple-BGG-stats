@@ -12,7 +12,7 @@ def add_description(title: str, method="explanation") -> None:
     text_to_show = df.at[title, "description"]
     match method:
         case "explanation":
-            with st.expander("See explanation of data"):
+            with st.expander("See explanation"):
                 st.markdown(text_to_show)
         case "description":
             st.write(text_to_show)
@@ -20,8 +20,10 @@ def add_description(title: str, method="explanation") -> None:
 
 
 def basics(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_info: pd.DataFrame) -> None:
-    collection_merged = pd.merge(df_collection, df_game_info, how="left", on="objectid")
-    plays_merged = pd.merge(df_plays, df_game_info, how="left", on="objectid")
+    df_game_info_fresh = df_game_info.drop_duplicates(subset=["objectid"], keep="last", ignore_index=True)
+
+    collection_merged = pd.merge(df_collection, df_game_info_fresh, how="left", on="objectid")
+    plays_merged = pd.merge(df_plays, df_game_info_fresh, how="left", on="objectid")
     collection_all = len(collection_merged)
     collection_games = len(collection_merged.query('type == "boardgame"'))
     collection_exp = len(collection_merged.query('type == "boardgameexpansion"'))
@@ -303,7 +305,8 @@ def h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
 
     st.toggle('Include boardgame expansions as well', key="h_toggle_collection")
 
-    df = pd.merge(df_plays, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+    df_game_infodb_fresh = df_game_infodb.drop_duplicates(subset=["objectid"], keep="last", ignore_index=True)
+    df = pd.merge(df_plays, df_game_infodb_fresh, how="left", on="objectid", suffixes=("", "_y"))
     if "h_toggle_collection" in st.session_state:
         if not st.session_state.h_toggle_collection:
             df = df.query('type == "boardgame"')
@@ -403,23 +406,6 @@ def historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
         if this_item >= from_year:
             periods.append(item)
 
-    # to_filter = periods
-    # periods = []
-    # if 'sel_sampling' not in st.session_state:
-    #     st.session_state.sel_sampling = 'Yearly'
-    # for item in to_filter:
-    #     match st.session_state.sel_sampling:
-    #         case "Yearly":
-    #             this_item = item[-5:]
-    #             if this_item == "01-01":
-    #                 periods.append(item)
-    #         case 'Quarterly':
-    #             this_item = item[-5:]
-    #             if this_item in {"01-01", "04-01", "07-01", "10-01"}:
-    #                 periods.append(item)
-    #         case 'Monthly':
-    #             periods.append(item)
-
     # create list of games with their first play dates
     df_plays = plays.groupby(["name", "objectid"])[["date"]].min()
 
@@ -451,15 +437,6 @@ def historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     st.line_chart(df_result_cum, x="Date", height=600)
     with st.expander("Numerical presentation"):
         st.dataframe(df_result_cum, hide_index=True, use_container_width=True)
-    # match method:
-    #     case "Basic":
-    #         st.line_chart(df_result, x="Date", height=600)
-    #         with st.expander("Numerical presentation"):
-    #             st.dataframe(df_result, hide_index=True, use_container_width=True)
-    #     case "Cumulative":
-    #         st.line_chart(df_result_cum, x="Date", height=600)
-    #         with st.expander("Numerical presentation"):
-    #             st.dataframe(df_result_cum, hide_index=True, use_container_width=True)
 
     add_description("historic_ranking")
     return None
@@ -606,6 +583,7 @@ def collection(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df_pla
 
     df_ordered_collection = df_collection.sort_values("name").reset_index(drop=True)
     df_updated_collection = df_ordered_collection.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
+    df_updated_collection.drop_duplicates(subset=["objectid"], keep="last", inplace=True, ignore_index=True)
 
     if "h_toggle_owned" in st.session_state:
         if not st.session_state.h_toggle_owned:

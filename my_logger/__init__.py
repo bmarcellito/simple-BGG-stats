@@ -10,7 +10,7 @@ def timeit(func):
         ts = time.time()
         result = func(*args, **kwargs)
         te = time.time()
-        log_text = f'Function: {func.__name__}, execution time: {round((te - ts) * 1000, 1)}ms'
+        log_text = f'*** Function: {func.__name__}, execution time: {round((te - ts) * 1000, 1)}ms'
         logger.info(log_text)
         return result
     return timed
