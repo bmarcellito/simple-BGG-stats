@@ -132,7 +132,7 @@ def import_xml_from_bgg(link: str) -> str:
 def check_user(username: str, df_check_user_cache: pd.DataFrame) -> (str, str, pd.DataFrame):
     st.caption("Checking user on BGG...")
     if username == "":
-        return "Init", df_check_user_cache
+        return "Init", "", df_check_user_cache
 
     # check whether we have successfully found this username in the last month
     if not df_check_user_cache.empty:
@@ -466,7 +466,7 @@ def build_item_db_background():
 
 
 # noinspection PyRedundantParentheses
-def build_item_db(df_new: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) -> \
+def build_item_db(games_to_import_list: list, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) -> \
         (pd.DataFrame, pd.DataFrame):
     global gdrive_processed
     global filename_game_infodb_processed
@@ -474,22 +474,6 @@ def build_item_db(df_new: pd.DataFrame, global_game_infodb: pd.DataFrame, global
 
     df_game_info = global_game_infodb
     df_playnumdb = global_play_numdb
-
-    possible_new_items = df_new.groupby("objectid").count().reset_index()
-    possible_new_items_list = possible_new_items["objectid"].tolist()
-    games_to_import_list = []
-    if len(df_game_info) > 0:
-        existing_item_list = df_game_info["objectid"].tolist()
-    else:
-        existing_item_list = []
-    if not df_game_info.empty:
-        for i in possible_new_items_list:
-            if i not in existing_item_list:
-                games_to_import_list.append(i)
-    else:
-        games_to_import_list = possible_new_items_list
-    if not games_to_import_list:
-        return df_game_info, df_playnumdb
 
     df_game_info = pd.DataFrame()
     df_playnumdb = pd.DataFrame()
@@ -530,21 +514,42 @@ def build_item_db(df_new: pd.DataFrame, global_game_infodb: pd.DataFrame, global
     return df_game_info, df_playnumdb
 
 
-def build_item_db_game(df_new_games: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
-        -> (pd.DataFrame, pd.DataFrame):
-    if df_new_games.empty:
+def build_item_db_all(df_new_games: pd.DataFrame, df_new_plays: pd.DataFrame, global_game_infodb: pd.DataFrame,
+                      global_play_numdb: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
+    if df_new_games.empty and df_new_plays.empty:
         return global_game_infodb, global_play_numdb
+    if not df_new_games.empty:
+        possible_new_items = df_new_games.groupby("objectid").count().reset_index()
+        possible_new_items_list = possible_new_items["objectid"].tolist()
+    else:
+        possible_new_items_list = []
+    if not df_new_plays.empty:
+        possible_new_items = df_new_games.groupby("objectid").count().reset_index()
+        possible_new_items_list = possible_new_items_list + possible_new_items["objectid"].tolist()
+
+    # remove duplicates
+    possible_new_items_list = list(set(possible_new_items_list))
     st.caption("Importing detailed item information for user's collection...")
-    df_game_info, df_playnumdb = build_item_db(df_new_games, global_game_infodb, global_play_numdb)
-    return df_game_info, df_playnumdb
 
-
-def build_item_db_play(df_new_plays: pd.DataFrame, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
-        -> (pd.DataFrame, pd.DataFrame):
-    if df_new_plays.empty:
+    games_to_import_list = []
+    if len(global_game_infodb) > 0:
+        existing_item_list = global_game_infodb["objectid"].tolist()
+        for i in possible_new_items_list:
+            if i not in existing_item_list:
+                games_to_import_list.append(i)
+    else:
+        games_to_import_list = possible_new_items_list
+    if not games_to_import_list:
         return global_game_infodb, global_play_numdb
-    st.caption("Importing detailed item information for user's plays...")
-    df_game_info, df_playnumdb = build_item_db(df_new_plays, global_game_infodb, global_play_numdb)
+
+    chunk = 100
+    for i in range((len(games_to_import_list) // chunk)+1):
+        import_part = games_to_import_list[i*chunk:(i+1)*chunk]
+        placeholder = st.empty()
+        with placeholder.container():
+            st.caption(f'{len(games_to_import_list)-i*chunk} items left')
+            df_game_info, df_playnumdb = build_item_db(import_part, global_game_infodb, global_play_numdb)
+        placeholder.empty()
     return df_game_info, df_playnumdb
 
 

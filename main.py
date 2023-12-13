@@ -32,16 +32,13 @@ def import_user_data(username: str, user_page: str, refresh: int) -> None:
     st.session_state.my_collection = bgg_import.user_collection(username=username, user_page=user_page,
                                                                 refresh=refresh)
     st.session_state.my_plays = bgg_import.user_plays(username, refresh)
-    while (("my_collection" not in st.session_state) and ("my_plays" not in st.session_state)
-           and ("global_game_infodb" not in st.session_state)):
+    while (("my_collection" not in st.session_state) or ("my_plays" not in st.session_state)
+           or ("global_game_infodb" not in st.session_state)):
         # still loading - has to wait a bit
         sleep(1)
     st.session_state.global_game_infodb, st.session_state.global_play_numdb = (
-        bgg_import.build_item_db_game(st.session_state.my_collection, st.session_state.global_game_infodb,
-                                      st.session_state.global_play_numdb))
-    st.session_state.global_game_infodb, st.session_state.global_play_numdb = (
-        bgg_import.build_item_db_play(st.session_state.my_plays, st.session_state.global_game_infodb,
-                                      st.session_state.global_play_numdb))
+        bgg_import.build_item_db_all(st.session_state.my_collection, st.session_state.my_plays,
+                                     st.session_state.global_game_infodb, st.session_state.global_play_numdb))
     st.session_state.stat_selection = "Basic statistics"
 
 
@@ -86,8 +83,8 @@ def present_stats(username: str):
         case "Stat around ratings":
             bgg_stats.by_rating(st.session_state.my_collection, st.session_state.my_plays,
                                 st.session_state.global_game_infodb)
-    # print(f'st.session_state.global_historic_ranking: {sys.getsizeof(st.session_state.global_historic_ranking)}')
-    # print(f'st.session_state.global_game_infodb: {sys.getsizeof(st.session_state.global_game_infodb)}')
+    print(f'st.session_state.global_historic_ranking: {sys.getsizeof(st.session_state.global_historic_ranking)}')
+    print(f'st.session_state.global_game_infodb: {sys.getsizeof(st.session_state.global_game_infodb)}')
 
 
 def init() -> None:
