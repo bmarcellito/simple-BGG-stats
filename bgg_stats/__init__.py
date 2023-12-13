@@ -384,10 +384,8 @@ def yearly_plays(df_play_stat: pd.DataFrame) -> None:
 
 def historic_ranking(historic: pd.DataFrame, plays: pd. DataFrame) -> None:
     # st.subheader("Games known from BGG top list")
-    # method = st.selectbox("How to show data?", ('Basic', 'Cumulative'), key='TOP100')
     # TODO add years from DB
     st.selectbox("Show data from year...", ('2017', '2018', '2019', '2020', '2021'), key='sel_year')
-    # st.selectbox("Data sampling", ('Yearly', 'Quarterly', 'Monthly'), key='sel_sampling')
 
     # create list of date we have ranking information
     periods = []

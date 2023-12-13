@@ -1,3 +1,4 @@
+import sys
 from time import sleep
 from requests import get
 import streamlit as st
@@ -7,6 +8,8 @@ from threading import Thread
 from my_logger import timeit, logger
 import bgg_stats
 import bgg_import
+
+import memory_profiler
 
 refresh_user_data = 5  # for importing user data - number represents days
 
@@ -22,8 +25,7 @@ def import_globals() -> None:
     while 0 == 0:
         # TODO new game appears in a new historic file - what will happen?
         st.session_state.global_fresh_ranking = bgg_import.current_ranking(st.session_state.global_fresh_ranking)
-        st.session_state.global_historic_ranking = bgg_import.historic_ranking(st.session_state.global_fresh_ranking,
-                                                                               st.session_state.global_historic_ranking)
+        st.session_state.global_historic_ranking = bgg_import.historic_ranking(st.session_state.global_historic_ranking)
         sleep(60*60*24)
 
 
@@ -86,6 +88,8 @@ def present_stats(username: str):
         case "Stat around ratings":
             bgg_stats.by_rating(st.session_state.my_collection, st.session_state.my_plays,
                                 st.session_state.global_game_infodb)
+    print(f'st.session_state.global_historic_ranking: {sys.getsizeof(st.session_state.global_historic_ranking)}')
+    print(f'st.session_state.global_game_infodb: {sys.getsizeof(st.session_state.global_game_infodb)}')
 
 
 def init() -> None:

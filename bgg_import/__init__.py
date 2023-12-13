@@ -42,6 +42,7 @@ def init_load() -> None:
         for item in items:
             if item["name"] == "historical_ranking.zip":
                 st.session_state.global_historic_ranking = gdrive.load_zip(item["id"])
+                st.session_state.global_historic_ranking.query(expr="best_rank < 2000", inplace=True)
                 st.session_state.global_historic_ranking.drop_duplicates(subset=["objectid"], keep="last",
                                                                          ignore_index=True, inplace=True)
 
@@ -266,7 +267,7 @@ def current_ranking(current_ranking: pd.DataFrame) \
 
 # noinspection PyRedundantParentheses
 @timeit
-def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
+def historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
     """
     Importing the game rankings from multiple different dates
     Historic game ranking information cannot be accessed via API at BGG
@@ -275,7 +276,6 @@ def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataF
     This function loads the files one by one and add the ranking information as a new column
     The game IDs and names come from the game DB (downloaded by a different function)
     Changes monthly. User independent, enough to load at the start
-    :param game_list: list of all games in a dataframe
     :param current_historic_ranking: current data available in the memory
     :return: imported data in dataframe
     """
@@ -287,29 +287,11 @@ def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataF
     global gdrive_processed
     global filename_historical_ranking_processed
 
-    """
-    q = (f'"{gdrive_processed}" in parents and name contains "{filename_historical_ranking_processed}"')
-    items = gdrive.search(query=q)
-    if not items:
-        existing_imports = []
-        # game DB is the start of the historical dataframe
-        if not game_list.empty:
-            df_historical = game_list[["objectid", "name", "yearpublished"]].set_index("objectid")
-        else:
-            df_historical = pd.DataFrame(columns=["objectid", "name", "yearpublished"])
-    else:
-        df_historical = gdrive.load_zip(file_id=items[0]["id"])
-        existing_imports = df_historical.columns.values.tolist()
-        del existing_imports[:3]
-    """
     if len(current_historic_ranking) > 0:
         df_historical = current_historic_ranking
         existing_imports = df_historical.columns.values.tolist()
     else:
-        if len(game_list) > 0:
-            df_historical = game_list[["objectid", "name", "yearpublished"]].set_index("objectid")
-        else:
-            df_historical = pd.DataFrame(columns=["objectid", "name", "yearpublished"])
+        df_historical = pd.DataFrame(columns=["objectid", "best_rank"])
         existing_imports = []
 
     # identifying the historical data files
@@ -341,6 +323,7 @@ def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataF
     # step_all = len(files_to_import) + 1
     # my_bar = st.progress(0, text=progress_text)
     for step, i in enumerate(files_to_import):
+        print(i["name"])
         historical_loaded = gdrive.load_zip(file_id=i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
@@ -352,7 +335,7 @@ def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataF
         # my_bar.progress(step * 100 // step_all, text=progress_text)
 
     # reorder columns
-    column_list = list(df_historical.columns.values)
+    column_list = df_historical.columns.values.tolist()
     column_list[3:len(column_list)] = sorted(column_list[3:len(column_list)])
     df_historical = df_historical[column_list]
 
@@ -366,6 +349,13 @@ def historic_ranking(game_list: pd.DataFrame, current_historic_ranking: pd.DataF
     for i in column_list:
         df_historical = df_historical.astype({i: "int32"})
     df_historical = df_historical.reset_index()
+
+    # find the highest rank for each item
+    for i in range(len(df_historical)):
+        row = df_historical.iloc[[i]].values.flatten().tolist()
+        row_nonzero = [i for i in row if i != 0]
+        df_historical.at[i, "best_rank"] = min(row_nonzero)
+        print(f'{i} - {min(row_nonzero)}')
 
     # TODO: games with multiple ID issue
 
@@ -612,7 +602,7 @@ def user_collection(username: str, user_page: str, refresh: int) -> pd.DataFrame
     So it is parsed twice, into 2 dataframes: df has the game information, df_status has the attributes
     At the end the 2 dataframes are concatenated 1:1
     :param username: user ID of the specific user
-    :param check_user_cache: list of previously verified usernames
+    :param user_page: previously loaded user collection page
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
@@ -656,10 +646,13 @@ def user_collection(username: str, user_page: str, refresh: int) -> pd.DataFrame
     # User ratings
     try:
         df_rating = pd.read_xml(StringIO(result), xpath=".//rating")
+        df_rating = pd.DataFrame(df_rating["value"])
+        df_rating.rename(columns={"value": "user_rating"}, inplace=True)
     except ValueError:
         logger.error(f'df_rating xpath //rating error.')
-    df_rating = pd.DataFrame(df_rating["value"])
-    df_rating.rename(columns={"value": "user_rating"}, inplace=True)
+        df_rating = pd.DataFrame(columns=["user_rating"])
+        for i in range(len(df)):
+            df_rating.at[i, 0] = 0
     df = pd.concat([df, df_rating], axis=1).reset_index(drop=True)
 
     # User information related to the games, like owned, ...
