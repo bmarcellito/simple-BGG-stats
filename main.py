@@ -83,8 +83,8 @@ def present_stats(username: str):
         case "Stat around ratings":
             bgg_stats.by_rating(st.session_state.my_collection, st.session_state.my_plays,
                                 st.session_state.global_game_infodb)
-    print(f'st.session_state.global_historic_ranking: {sys.getsizeof(st.session_state.global_historic_ranking)}')
-    print(f'st.session_state.global_game_infodb: {sys.getsizeof(st.session_state.global_game_infodb)}')
+    # print(f'st.session_state.global_historic_ranking: {sys.getsizeof(st.session_state.global_historic_ranking)}')
+    # print(f'st.session_state.global_game_infodb: {sys.getsizeof(st.session_state.global_game_infodb)}')
 
 
 def init() -> None:

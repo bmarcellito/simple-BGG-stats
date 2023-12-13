@@ -323,7 +323,6 @@ def historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
     # step_all = len(files_to_import) + 1
     # my_bar = st.progress(0, text=progress_text)
     for step, i in enumerate(files_to_import):
-        print(i["name"])
         historical_loaded = gdrive.load_zip(file_id=i["id"])
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
@@ -355,7 +354,6 @@ def historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
         row = df_historical.iloc[[i]].values.flatten().tolist()
         row_nonzero = [i for i in row if i != 0]
         df_historical.at[i, "best_rank"] = min(row_nonzero)
-        print(f'{i} - {min(row_nonzero)}')
 
     # TODO: games with multiple ID issue
 
