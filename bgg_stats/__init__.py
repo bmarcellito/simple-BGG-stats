@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import re
 
 
-@st.cache_data(ttl=86400)
+@st.cache_data()
 def add_description(title: str, method="explanation") -> None:
     df = pd.read_csv("bgg_stats/stat_desc.csv", index_col="topic")
     text_to_show = df.at[title, "description"]

@@ -66,22 +66,27 @@ def init_load() -> None:
         pass
     else:
         thread_current_ranking = Thread(target=init_current_ranking)
+        thread_current_ranking.name = "init_current_ranking"
         add_script_run_ctx(thread_current_ranking)
         thread_current_ranking.start()
 
         thread_game_infodb = Thread(target=init_game_infodb)
+        thread_game_infodb.name = "init_game_infodb"
         add_script_run_ctx(thread_game_infodb)
         thread_game_infodb.start()
 
         thread_historic_ranking = Thread(target=init_historic_ranking)
+        thread_historic_ranking.name = "init_historic_ranking"
         add_script_run_ctx(thread_historic_ranking)
         thread_historic_ranking.start()
 
         thread_play_numdb = Thread(target=init_play_numdb)
+        thread_play_numdb.name = "init_play_numdb"
         add_script_run_ctx(thread_play_numdb)
         thread_play_numdb.start()
 
         thread_user_cache = Thread(target=init_user_cache)
+        thread_user_cache.name = "init_user_cache"
         add_script_run_ctx(thread_user_cache)
         thread_user_cache.start()
 
@@ -590,7 +595,7 @@ def import_player_number(result: str, objectid: str) -> pd.DataFrame:
 
 
 # noinspection PyRedundantParentheses
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=10)
 def user_collection(username: str, user_page: str, refresh: int) -> pd.DataFrame:
     """
     BGG adds all game you have interacted with into a collection
@@ -671,7 +676,7 @@ def user_collection(username: str, user_page: str, refresh: int) -> pd.DataFrame
 
 
 # noinspection PyRedundantParentheses
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=10)
 def user_plays(username: str, refresh: int) -> pd.DataFrame:
     """
     Importing all play instances uf a specific user from BGG website

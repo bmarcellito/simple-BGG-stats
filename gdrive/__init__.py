@@ -18,7 +18,7 @@ extension_normal = ".csv"
 extension_compressed = ".zip"
 
 
-@st.cache_data
+@st.cache_data(max_entries=10)
 def authenticate() -> googleapiclient.discovery.Resource:
     scopes = ['https://www.googleapis.com/auth/drive']
     service_account_info = {
@@ -164,16 +164,18 @@ def save(parent_folder: str, filename: str, df: pd.DataFrame, concat: list) -> s
 
 
 def save_background(parent_folder: str, filename: str, df: pd.DataFrame, concat: list) -> str:
-    thread_global_import = Thread(target=save, args=(parent_folder, filename, df, concat))
-    add_script_run_ctx(thread_global_import)
-    thread_global_import.start()
+    thread_save = Thread(target=save, args=(parent_folder, filename, df, concat))
+    thread_save.name = f"save_{parent_folder}/{filename}"
+    add_script_run_ctx(thread_save)
+    thread_save.start()
     return ""
 
 
 def overwrite_background(parent_folder: str, filename: str, df: pd.DataFrame) -> str:
-    thread_global_import = Thread(target=save, args=(parent_folder, filename, df, []))
-    add_script_run_ctx(thread_global_import)
-    thread_global_import.start()
+    thread_overwrite = Thread(target=save, args=(parent_folder, filename, df, []))
+    thread_overwrite.name = f"save_{parent_folder}/{filename}"
+    add_script_run_ctx(thread_overwrite)
+    thread_overwrite.start()
     return ""
 
 
