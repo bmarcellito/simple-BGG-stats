@@ -59,7 +59,7 @@ def sidebar() -> str:
     with st.sidebar:
         st.title("BGG statistics")
         with st.form("my_form"):
-            bgg_username = st.text_input('Enter a BGG username', key="input_username")
+            st.session_state.bgg_username = st.text_input('Enter a BGG username', key="input_username")
             submitted = st.form_submit_button(label="Submit", on_click=username_button_pushed)
         st.caption(f'User data is cached for {refresh_user_data} days. Push the button to refresh it')
         # TODO
@@ -74,7 +74,7 @@ def sidebar() -> str:
             with st.session_state.ph_import.status("Reimporting data...", expanded=True):
                 user_collection.clear()
                 user_plays.clear()
-                import_user_data(bgg_username, "", 0)
+                import_user_data(st.session_state.bgg_username, 0)
 
         if submitted:
             st.session_state.ph_import = st.empty()
@@ -82,22 +82,22 @@ def sidebar() -> str:
             sleep(0.1)
             with st.session_state.ph_import.status("Importing data...", expanded=True):
                 st.session_state.can_present = False
-                st.session_state.user_state = check_user(username=bgg_username)
+                st.session_state.user_state = check_user(username=st.session_state.bgg_username)
                 if st.session_state.user_state == "User_found":
-                    import_user_data(bgg_username, refresh_user_data)
+                    import_user_data(st.session_state.bgg_username, refresh_user_data)
                 st.session_state.can_present = True
             st.rerun()
         else:
             with st.status("Importing data...", expanded=False):
                 pass
-        return bgg_username
+        return st.session_state.bgg_username
 
 
 def main():
     st.session_state.bgg_username = sidebar()
     if st.session_state.can_present:
         present_stats(st.session_state.bgg_username, st.session_state.user_state)
-    # extra_admin(bgg_username)
+    # extra_admin(st.session_state.bgg_username)
     check_for_new_data()
 
 
