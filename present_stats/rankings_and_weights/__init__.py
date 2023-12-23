@@ -1,6 +1,6 @@
 import streamlit as st
 from plotly import express as px
-import statsmodels
+# import statsmodels
 
 from present_stats.rankings_and_weights.calculate_rankings_and_weights import calculate_rankings_and_weights
 from present_stats.add_description import add_description
