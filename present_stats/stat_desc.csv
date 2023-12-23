@@ -45,7 +45,7 @@ Description of columns:
 Data used
 - user's documented plays for Name and Number of plays (xmlapi2/plays)
 - Note: BGG lets you add quantity to a recorded play (like you played that game 3 times in a row, and you create one play for all of this. These statistics would count these 3 plays."
-8,historic_ranking,"BGG maintains multiple rankings. The most important is the 'Overall'.  This statistic shows that at specific moments in time how many games did the user know (documented a play with that game for an earlier date) from the 'Overall' BGG rank list valid at that time. Note: BGG's Overall rank list has only board games, no expansions listed.
+8,bgg_toplist,"BGG maintains multiple rankings. The most important is the 'Overall'.  This statistic shows that at specific moments in time how many games did the user know (documented a play with that game for an earlier date) from the 'Overall' BGG rank list valid at that time. Note: BGG's Overall rank list has only board games, no expansions listed.
 
 Data used:
 - user's documented plays for understanding which games are known at a specific time (xmlapi2/plays)
