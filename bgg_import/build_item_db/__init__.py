@@ -16,7 +16,7 @@ def create_import_list(df_new_games: pd.DataFrame, df_new_plays: pd.DataFrame, g
     else:
         possible_new_items_list = []
     if not df_new_plays.empty:
-        possible_new_items = df_new_games.groupby("objectid").count().reset_index()
+        possible_new_items = df_new_plays.groupby("objectid").count().reset_index()
         possible_new_items_list = possible_new_items_list + possible_new_items["objectid"].tolist()
 
     # remove duplicates
