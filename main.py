@@ -29,11 +29,11 @@ def init() -> None:
     add_script_run_ctx(thread_global_import)
     thread_global_import.start()
 
+    st.session_state.can_present = True
     st.session_state.bgg_username = ""
     st.session_state.refresh_button_disabled = True
     st.session_state.user_state = "No_user_selected"
     st.session_state.last_checked = str(datetime.now() + timedelta(minutes=5))
-    st.session_state.can_present = True
 
 
 def check_for_new_data() -> None:

@@ -1,4 +1,5 @@
 import pandas as pd
+from my_logger import logger
 
 
 def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_info: pd.DataFrame,
@@ -67,8 +68,15 @@ def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: p
     df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=7, step=1))
 
     user_info = df_user_cache.query(f'username == "{bgg_username}"').reset_index()
-    first_name = user_info.loc[0, "first_name"]
-    last_name = user_info.loc[0, "last_name"]
+    logger.info(user_info)
+    try:
+        first_name = user_info.loc[0, "first_name"]
+    except KeyError:
+        first_name = ""
+    try:
+        last_name = user_info.loc[0, "last_name"]
+    except KeyError:
+        last_name = ""
     if len(first_name+last_name) > 0:
         row_name = f'Name: {first_name} {last_name}  \n'
     else:
