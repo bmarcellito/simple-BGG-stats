@@ -1,5 +1,5 @@
 lxml
 pandas
+statsmodels
 plotly
-statsmodels==0.14.1
 google-api-python-client
