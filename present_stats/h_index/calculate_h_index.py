@@ -33,13 +33,13 @@ def count_h(df_raw: pd.DataFrame) -> (pd.DataFrame, int):
     return df_player_num_votes.head(cut), i
 
 
-def calculate_h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame, toggle_collection: bool, stat_type: str) \
+def calculate_h_index(df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame, toggle_expansion: bool, stat_type: str) \
         -> list:
     if len(df_plays) == 0:
         return []
     df_game_infodb_fresh = df_game_infodb.drop_duplicates(subset=["objectid"], keep="last", ignore_index=True)
     df = pd.merge(df_plays, df_game_infodb_fresh, how="left", on="objectid", suffixes=("", "_y"))
-    if not toggle_collection:
+    if not toggle_expansion:
         df = df.query('type == "boardgame"')
     if len(df) == 0:
         return []

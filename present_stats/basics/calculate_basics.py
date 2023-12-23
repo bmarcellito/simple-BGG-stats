@@ -71,10 +71,14 @@ def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: p
     logger.info(user_info)
     try:
         first_name = user_info.loc[0, "first_name"]
+        if first_name != first_name:
+            first_name = ""
     except KeyError:
         first_name = ""
     try:
         last_name = user_info.loc[0, "last_name"]
+        if last_name != last_name:
+            last_name = ""
     except KeyError:
         last_name = ""
     if len(first_name+last_name) > 0:

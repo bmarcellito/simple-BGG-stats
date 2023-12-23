@@ -1,10 +1,8 @@
-import string
-
 import pandas as pd
 
 
 def calculate_user_and_bgg_ratings(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame,
-                                   toggle_owned: bool, toggle_collection: bool,) -> (pd.DataFrame, int):
+                                   toggle_owned: bool, toggle_expansion: bool,) -> (pd.DataFrame, int):
     if len(df_collection) == 0:
         return pd.DataFrame(), 0, 0, 0, 0, 0
     df_rating = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
@@ -12,7 +10,7 @@ def calculate_user_and_bgg_ratings(df_collection: pd.DataFrame, df_plays: pd.Dat
 
     if not toggle_owned:
         df_rating = df_rating.query('own == 1')
-    if not toggle_collection:
+    if not toggle_expansion:
         df_rating = df_rating.query('type == "boardgame"')
     if len(df_rating) == 0:
         return pd.DataFrame(), 0, 0, 0, 0, 0

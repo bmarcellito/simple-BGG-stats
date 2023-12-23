@@ -3,7 +3,7 @@ import datetime
 
 
 def calculate_games_by_publication_year(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, toggle_owned: bool,
-                                        toggle_collection: bool, cut_year: int) -> pd.DataFrame:
+                                        toggle_expansion: bool, cut_year: int) -> pd.DataFrame:
     if len(df_collection) == 0:
         return pd.DataFrame()
     played = df_collection.merge(df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
@@ -14,7 +14,7 @@ def calculate_games_by_publication_year(df_collection: pd.DataFrame, df_game_inf
 
     if not toggle_owned:
         played = played.query('own == 1')
-    if not toggle_collection:
+    if not toggle_expansion:
         played = played.query('type == "boardgame"')
     if len(played) == 0:
         return pd.DataFrame()

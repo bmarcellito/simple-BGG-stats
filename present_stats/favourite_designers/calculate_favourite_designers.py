@@ -2,14 +2,14 @@ import pandas as pd
 
 
 def calculate_favourite_designers(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, toggle_owned: bool,
-                                  toggle_collection: bool, stat_type: str) -> pd.DataFrame:
+                                  toggle_expansion: bool, stat_type: str) -> pd.DataFrame:
 
     if len(df_collection) == 0:
         return pd.DataFrame()
     df_favourite_designer = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     if not toggle_owned:
         df_favourite_designer = df_favourite_designer.query('own == 1')
-    if not toggle_collection:
+    if not toggle_expansion:
         df_favourite_designer = df_favourite_designer.query('type == "boardgame"')
     if len(df_favourite_designer) == 0:
         return pd.DataFrame()

@@ -38,7 +38,7 @@ def calculate_ideal_player_number(df_updated_collection: pd.DataFrame, df_playnu
 
 
 def calculate_collection(df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame, df_playnum_infodb: pd.DataFrame,
-                         toggle_owned: bool, toggle_collection: bool, player_range: (int, int)) -> pd.DataFrame:
+                         toggle_owned: bool, toggle_expansion: bool, player_range: (int, int)) -> pd.DataFrame:
     if len(df_collection) == 0:
         return pd.DataFrame()
     df_ordered_collection = df_collection.sort_values("name").reset_index(drop=True)
@@ -47,7 +47,7 @@ def calculate_collection(df_collection: pd.DataFrame, df_game_infodb: pd.DataFra
 
     if not toggle_owned:
         df_updated_collection = df_updated_collection.query('own == 1')
-    if not toggle_collection:
+    if not toggle_expansion:
         df_updated_collection = df_updated_collection.query('type == "boardgame"')
     if len(df_updated_collection) == 0:
         return pd.DataFrame()

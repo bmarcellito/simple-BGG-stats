@@ -15,11 +15,11 @@ def present_favourite_designers() -> None:
         with col1:
             st.toggle(label="Just owned games / all known games", key="toggle_owned")
         with col2:
-            st.toggle(label='Include boardgame expansions as well', key="toggle_collection")
+            st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
         df_favourite_designer = calculate_favourite_designers(st.session_state.my_collection,
                                                               st.session_state.global_game_infodb,
                                                               st.session_state.toggle_owned,
-                                                              st.session_state.toggle_collection,
+                                                              st.session_state.toggle_expansion,
                                                               st.session_state.sel_designer)
         if len(df_favourite_designer) == 0:
             st.write("No data to show :(")

@@ -13,10 +13,10 @@ def present_user_and_bgg_ratings() -> None:
         with col1:
             st.toggle(label="Just owned games / all known games", key="toggle_owned")
         with col2:
-            st.toggle(label='Include boardgame expansions as well', key="toggle_collection")
+            st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
         df_rating, circle_size, min_rating, max_rating, min_bgg_rating, max_bgg_rating = calculate_user_and_bgg_ratings(
             st.session_state.my_collection, st.session_state.my_plays, st.session_state.global_game_infodb,
-            st.session_state.toggle_owned, st.session_state.toggle_collection)
+            st.session_state.toggle_owned, st.session_state.toggle_expansion)
         if len(df_rating) == 0:
             st.write("No data to show :(")
         else:

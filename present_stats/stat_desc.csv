@@ -51,7 +51,9 @@ Data used:
 - user's documented plays for understanding which games are known at a specific time (xmlapi2/plays)
 - On the BGG website you can access the 'Overall' ranking information, including how it has changed historically in the past. However, there is no operational API to get this information (as of late 2023). An excited person collected this information somehow and published it, available for everyone. There is a separate CSV file for each specific date, containing the actual ranking information (source: https://github.com/beefsack/bgg-ranking-historicals)
 - Note: these ranking CSV files are available only from 12th October 2016, so no earlier statistics are possible."
-9,by_weight,"Each item on BGG has a number called 'Weight'. It shows how complex the game is. BGG users can rate every item on the website. BGG creates multiple averages, here the 'Average rating' is used (calculated by BGG). The size of the plots shows how many times the user played with it.
+9,by_weight,"Each item (board game or expansion) on BGG has a number called 'Weight'. It shows how complex the game is. Weight is created based on the votes of the users. Complexity has a value between 1 and 5, a higher number means a more complex game.
+Also, each item has a rating, between 1 and 10. Also, it is calculated based on user votes.  BGG creates multiple averages, here the 'Average rating' is used (as calculated by BGG). 
+The size of the plots shows how many times the user played with it.
 - Note: more serious players prefer games with higher weight. Also, more serious players take the energy to document plays, maintain a collection, and rate games on BGG. As a result, games with higher weight usually have a higher rating.
 
 Data used:
@@ -80,3 +82,10 @@ This is a personal project by Marcell Bendik, not related to BGG.
 Here you can search for a specific BGG user: https://boardgamegeek.com/users.php
 
 If you do not know any interesting user, check one of the following users who have an exciting set of data: cscottk, indigopotter, lolcese, raphaell7 (some random admin of the website who are also keen players) "
+13,games_by_weight,"Each item (board game or expansion) on BGG has a number called 'Weight'. It shows how complex the game is. Weight is created based on the votes of the users. Complexity has a value between 1 and 5, a higher number means a more complex game.
+
+Data used:
+- user's documented plays for Number of plays (xmlapi2/plays)
+- user's collection for ownership (xmlapi2/collection)
+- detailed board game info for board game type (to separate board games and extensions) (xmlapi2/thing)
+- more info on weight: https://boardgamegeek.com/wiki/page/Weight"

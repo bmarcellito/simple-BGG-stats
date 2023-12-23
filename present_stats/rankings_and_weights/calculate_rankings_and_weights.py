@@ -2,7 +2,7 @@ import pandas as pd
 
 
 def calculate_rankings_and_weights(df_game_info: pd.DataFrame, df_collection: pd.DataFrame, df_plays: pd.DataFrame,
-                                   h_toggle_owned: bool, h_toggle_collection: bool) -> \
+                                   h_toggle_owned: bool, h_toggle_expansion: bool) -> \
         (pd.DataFrame, float, float, float, float):
     if (len(df_plays) == 0) or (len(df_collection) == 0):
         return pd.DataFrame(), 0, 0, 0, 0
@@ -14,7 +14,7 @@ def calculate_rankings_and_weights(df_game_info: pd.DataFrame, df_collection: pd
 
     if not h_toggle_owned:
         most_played = most_played.query('own == 1')
-    if not h_toggle_collection:
+    if not h_toggle_expansion:
         most_played = most_played.query('type == "boardgame"')
     if len(most_played) == 0:
         return pd.DataFrame(), 0, 0, 0, 0
