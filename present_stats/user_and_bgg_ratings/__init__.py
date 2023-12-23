@@ -1,6 +1,6 @@
 import streamlit as st
 from plotly import express as px
-# import statsmodels
+import statsmodels
 
 from present_stats.user_and_bgg_ratings.calculate_user_and_bgg_ratings import calculate_user_and_bgg_ratings
 from present_stats.add_description import add_description

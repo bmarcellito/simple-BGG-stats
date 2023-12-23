@@ -2,4 +2,5 @@ lxml
 pandas
 plotly
 statsmodels
+statsmodels.api
 google-api-python-client
