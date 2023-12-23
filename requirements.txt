@@ -1,4 +1,5 @@
 lxml
 pandas
 plotly
+statsmodels
 google-api-python-client
