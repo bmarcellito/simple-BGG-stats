@@ -47,7 +47,6 @@ def check_for_new_data() -> None:
 
 
 def extra_admin(bgg_username: str):
-    # TODO new game appears in a new historic file - what will happen?
     pass
     # if bgg_username == "bmarcell":
     #     with st.expander("See logs"):
@@ -62,7 +61,6 @@ def sidebar() -> str:
             st.session_state.bgg_username = st.text_input('Enter a BGG username', key="input_username")
             submitted = st.form_submit_button(label="Submit", on_click=username_button_pushed)
         st.caption(f'User data is cached for {refresh_user_data} days. Push the button to refresh it')
-        # TODO
         if st.session_state.user_state == "User_found":
             button_disabled = False
         else:
@@ -111,3 +109,5 @@ if __name__ == "__main__":
                     </style></head><body></body></html>
                 """, unsafe_allow_html=True)
     main()
+    # TODO rating stat - show graph based on min and max available values
+    # TODO new game appears in a new historic file - what will happen?
