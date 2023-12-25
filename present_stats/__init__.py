@@ -33,7 +33,6 @@ def present_stat_selector(username: str) -> None:
                       'Stat around ratings']
     option = st.selectbox(label='Choose a statistic', options=select_options, on_change=new_stat_selected,
                           index=st.session_state.stat_state, key="stat_key")
-    st.session_state.stat_state = select_options.index(option)
     while "global_game_infodb" not in st.session_state:
         # still loading - has to wait a bit
         sleep(1)
