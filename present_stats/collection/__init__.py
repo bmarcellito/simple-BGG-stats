@@ -13,9 +13,10 @@ def present_collection():
             st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
         player_range = st.slider('Narrow on ideal player number', 1, 8, (1, 8), key='stat_playernum')
 
-        stat = calculate_collection(st.session_state.my_collection, st.session_state.global_game_infodb,
-                                    st.session_state.global_play_numdb, st.session_state.toggle_owned,
-                                    st.session_state.toggle_expansion, player_range)
+        with st.spinner('Please wait, calculating statistics...'):
+            stat = calculate_collection(st.session_state.my_collection, st.session_state.global_game_infodb,
+                                        st.session_state.global_play_numdb, st.session_state.toggle_owned,
+                                        st.session_state.toggle_expansion, player_range)
 
         if len(stat) == 0:
             st.write("No data to show :(")

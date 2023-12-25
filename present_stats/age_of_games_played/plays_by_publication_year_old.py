@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 from plotly import express as px
 
-from bgg_stats import add_description
+from present_stats.add_description import add_description
 
 
 def plays_by_publication(df_plays: pd.DataFrame, df_collection: pd.DataFrame, df_game_infodb: pd.DataFrame) -> None:
@@ -48,7 +48,7 @@ def plays_by_publication(df_plays: pd.DataFrame, df_collection: pd.DataFrame, df
     played = played.query('quantity > 0')
 
     fig = px.scatter(played, y="Year published", x="date", size="quantity",
-                     hover_name="name", height=600)
+                     hover_name="name", size_max=30, height=600)
     fig.update_xaxes(showgrid=True)
     fig.update_yaxes(showgrid=True)
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)

@@ -17,5 +17,3 @@ def import_user_data(username: str, refresh: int) -> None:
     st.session_state.global_game_infodb, st.session_state.global_play_numdb = build_item_db_all(
         st.session_state.my_collection, st.session_state.my_plays, st.session_state.global_game_infodb,
         st.session_state.global_play_numdb)
-    if "stat_selection" in st.session_state:
-        st.session_state.stat_selection = "Basic statistics"

@@ -18,10 +18,11 @@ def present_games_by_publication_year() -> None:
         this_year = datetime.date.today().year - 1
         cut_year = st.slider('Which year to start from?', 1900, this_year, 2000)
 
-        played = calculate_games_by_publication_year(st.session_state.my_collection,
-                                                     st.session_state.global_game_infodb,
-                                                     st.session_state.toggle_owned,
-                                                     st.session_state.toggle_expansion, cut_year)
+        with st.spinner('Please wait, calculating statistics...'):
+            played = calculate_games_by_publication_year(st.session_state.my_collection,
+                                                         st.session_state.global_game_infodb,
+                                                         st.session_state.toggle_owned,
+                                                         st.session_state.toggle_expansion, cut_year)
 
         if len(played) == 0:
             st.write("No data to show :(")

@@ -5,7 +5,7 @@ import streamlit as st
 
 from my_gdrive.search import search
 from my_gdrive.load_functions import load_zip
-from my_gdrive.save_functions import save_background
+from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
 from my_logger import logger
 
@@ -89,9 +89,13 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
     df_play = df_play.drop(["length", "incomplete", "nowinstats", "location", "objecttype", "subtypes", "item"], axis=1)
     if "players" in df_play.columns:
         df_play = df_play.drop(["players"], axis=1)
-    df_play = df_play.sort_values(by=["date"]).reset_index()
+    df_play = df_play.sort_values(by=["date"])
 
-    save_background(parent_folder=user_folder_id, filename="user_plays", df=df_play, concat=["id"])
+    # removing plays that are recorded to future dates
+    today = datetime.date(datetime.today())
+    df_play = df_play.query(f'date <= "{today}"').reset_index()
+
+    overwrite_background(parent_folder=user_folder_id, filename="user_plays", df=df_play)
 
     step += 1
     my_bar.progress(step * 100 // step_all, text=progress_text)

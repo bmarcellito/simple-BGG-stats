@@ -89,3 +89,9 @@ Data used:
 - user's collection for ownership (xmlapi2/collection)
 - detailed board game info for board game type (to separate board games and extensions) (xmlapi2/thing)
 - more info on weight: https://boardgamegeek.com/wiki/page/Weight"
+14,plays_by_publication_year,"This statistic show how old board games we play each year. Most of us tend to play with recently published games, and our limited time force us to forget great but older games.
+
+Data used:
+- user's documented plays for Number and dates of plays (xmlapi2/plays)
+- user's collection for ownership (xmlapi2/collection)
+- detailed board game info for board game type (to separate board games and extensions) and publication date (xmlapi2/thing)"

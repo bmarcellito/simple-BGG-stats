@@ -3,3 +3,4 @@ pandas
 statsmodels
 plotly
 google-api-python-client
+streamlit

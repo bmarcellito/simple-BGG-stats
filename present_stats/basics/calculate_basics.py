@@ -1,5 +1,4 @@
 import pandas as pd
-from my_logger import logger
 
 
 def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_info: pd.DataFrame,
@@ -12,6 +11,9 @@ def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: p
         owned_all = 0
         owned_games = 0
         owned_exp = 0
+        not_played_all = 0
+        not_played_games = 0
+        not_played_exp = 0
         rated_all = 0
         rated_games = 0
         rated_exp = 0
@@ -28,6 +30,10 @@ def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: p
         owned_all = df_collection["own"].loc[df_collection["own"] == 1].count()
         owned_games = len(collection_merged.query('(type == "boardgame") and (own == 1)'))
         owned_exp = len(collection_merged.query('(type == "boardgameexpansion") and (own == 1)'))
+        not_played_all = len(collection_merged.query('(numplays == 0) and (own == 1)'))
+        not_played_games = len(collection_merged.query('(numplays == 0) and (own == 1) and (type == "boardgame")'))
+        not_played_exp = len(collection_merged.query('(numplays == 0) and (own == 1) and '
+                                                     '(type == "boardgameexpansion")'))
         rated_all = len(collection_merged.query('user_rating > 0'))
         rated_games = len(collection_merged.query('(type == "boardgame") and (user_rating > 0)'))
         rated_exp = len(collection_merged.query('(type == "boardgameexpansion") and (user_rating > 0)'))
@@ -59,16 +65,16 @@ def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: p
         tried_exp = tried_exp["objectid"].nunique()
         first_play = df_plays.date.min()
 
-    data = {"Name": ["Size of BGG collection", "Number of items owned", "Number of recorded plays",
-                     "Number of unique items tried", "Played more than once",
+    data = {"Name": ["Size of BGG collection", "Number of items owned", "Number of items owned but not tried",
+                     "Number of recorded plays", "Number of unique items tried", "Played more than once",
                      "Number of items rated by the user"],
-            "Games": [collection_games, owned_games, plays_games, tried_games, more_games, rated_games],
-            "Expansions": [collection_exp, owned_exp, plays_exp, tried_exp, more_exp, rated_exp],
-            "All": [collection_all, owned_all, plays_all, tried_all, more_all, rated_all]}
-    df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=7, step=1))
+            "Games": [collection_games, owned_games, not_played_games, plays_games, tried_games, more_games,
+                      rated_games],
+            "Expansions": [collection_exp, owned_exp, not_played_exp, plays_exp, tried_exp, more_exp, rated_exp],
+            "All": [collection_all, owned_all, not_played_all, plays_all, tried_all, more_all, rated_all]}
+    df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=8, step=1))
 
     user_info = df_user_cache.query(f'username == "{bgg_username}"').reset_index()
-    logger.info(user_info)
     try:
         first_name = user_info.loc[0, "first_name"]
         if first_name != first_name:

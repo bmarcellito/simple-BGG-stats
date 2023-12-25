@@ -2,9 +2,9 @@ import pandas as pd
 
 
 def calculate_user_and_bgg_ratings(df_collection: pd.DataFrame, df_plays: pd.DataFrame, df_game_infodb: pd.DataFrame,
-                                   toggle_owned: bool, toggle_expansion: bool,) -> (pd.DataFrame, int):
+                                   toggle_owned: bool, toggle_expansion: bool,) -> (pd.DataFrame, int, int, int, int):
     if len(df_collection) == 0:
-        return pd.DataFrame(), 0, 0, 0, 0, 0
+        return pd.DataFrame(), 0, 0, 0, 0
     df_rating = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     df_rating = pd.DataFrame(df_rating.loc[df_rating["user_rating"] > 0])
 
@@ -13,7 +13,7 @@ def calculate_user_and_bgg_ratings(df_collection: pd.DataFrame, df_plays: pd.Dat
     if not toggle_expansion:
         df_rating = df_rating.query('type == "boardgame"')
     if len(df_rating) == 0:
-        return pd.DataFrame(), 0, 0, 0, 0, 0
+        return pd.DataFrame(), 0, 0, 0, 0
 
     most_played = pd.DataFrame(df_plays.groupby("objectid").sum())
     df_rating = df_rating.merge(most_played, how="left", left_on="objectid", right_on="index", suffixes=("", "_z"))
@@ -29,11 +29,6 @@ def calculate_user_and_bgg_ratings(df_collection: pd.DataFrame, df_plays: pd.Dat
     min_rating = min(min_user_rating, min_bgg_rating)
     max_rating = max(max_user_rating, max_bgg_rating)
 
-    max_size = int(max(df_rating["Number of plays"].max() // 100, 1))
-    if max_size == 1:
-        circle_size = max_size*30
-    else:
-        circle_size = max_size*10
     step = 10
     starting = round(min_rating*10)
     ending = round((max_rating-0.2)*10)
@@ -43,4 +38,4 @@ def calculate_user_and_bgg_ratings(df_collection: pd.DataFrame, df_plays: pd.Dat
                                 "Average rating on BGG": i/step, "color_data": "Equal values line"},
                                index=[len(df_rating)])
         df_rating = pd.concat([df_rating, new_row])
-    return df_rating, circle_size, min_rating, max_rating, min_bgg_rating, max_bgg_rating
+    return df_rating, min_rating, max_rating, min_bgg_rating, max_bgg_rating

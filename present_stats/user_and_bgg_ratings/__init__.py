@@ -14,15 +14,18 @@ def present_user_and_bgg_ratings() -> None:
             st.toggle(label="Just owned games / all known games", key="toggle_owned")
         with col2:
             st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
-        df_rating, circle_size, min_rating, max_rating, min_bgg_rating, max_bgg_rating = calculate_user_and_bgg_ratings(
-            st.session_state.my_collection, st.session_state.my_plays, st.session_state.global_game_infodb,
-            st.session_state.toggle_owned, st.session_state.toggle_expansion)
+
+        with st.spinner('Please wait, calculating statistics...'):
+            df_rating, min_rating, max_rating, min_bgg_rating, max_bgg_rating = calculate_user_and_bgg_ratings(
+                st.session_state.my_collection, st.session_state.my_plays, st.session_state.global_game_infodb,
+                st.session_state.toggle_owned, st.session_state.toggle_expansion)
+
         if len(df_rating) == 0:
             st.write("No data to show :(")
         else:
             fig = px.scatter(df_rating, x="Average rating on BGG", y="User's rating", size="Number of plays",
                              hover_name="name", color="color_data", color_discrete_sequence=["#000000", "#FB0D0D"],
-                             size_max=circle_size, range_x=[min_bgg_rating, max_bgg_rating],
+                             size_max=30, range_x=[min_bgg_rating, max_bgg_rating],
                              range_y=[min_rating, max_rating], trendline="ols")
             fig.update_xaxes(showgrid=True)
             fig.update_yaxes(showgrid=True)

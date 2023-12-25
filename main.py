@@ -5,6 +5,7 @@ from streamlit.runtime.scriptrunner import add_script_run_ctx
 from threading import Thread
 # import gc
 
+from presentation_hack import username_button_pushed, refresh_button_pushed
 from bgg_import.check_user import check_user
 from bgg_import import import_user_data
 from bgg_import.get_user_collection import user_collection
@@ -13,7 +14,6 @@ from bgg_import.get_current_ranking import get_current_ranking
 from bgg_import.get_historic_ranking import historic_ranking
 from bgg_import.init_load import init_load
 from present_stats import present_stats
-from presentation_hack import username_button_pushed, refresh_button_pushed
 
 refresh_user_data = 5  # for importing user data - number represents days
 
@@ -29,11 +29,12 @@ def init() -> None:
     add_script_run_ctx(thread_global_import)
     thread_global_import.start()
 
-    st.session_state.can_present = True
     st.session_state.bgg_username = ""
     st.session_state.refresh_button_disabled = True
     st.session_state.user_state = "No_user_selected"
     st.session_state.last_checked = str(datetime.now() + timedelta(minutes=5))
+    st.session_state.stat_state = 0
+    st.session_state.can_present = True
 
 
 def check_for_new_data() -> None:
@@ -46,12 +47,19 @@ def check_for_new_data() -> None:
             st.session_state.last_checked = str(datetime.now() + timedelta(hours=24))
 
 
-def extra_admin(bgg_username: str):
+def extra_admin() -> None:
     pass
     # if bgg_username == "bmarcell":
     #     with st.expander("See logs"):
     #         gc.collect()
     #         st.markdown(f'Garbage col: {gc.get_count()}')
+
+
+def contact_form() -> None:
+    st.session_state.ph_contact = st.empty()
+    if st.session_state.ph_contact.button("Send feedback!"):
+        st.session_state.previous_user_state = st.session_state.user_state
+        st.session_state.user_state = "Contact_form"
 
 
 def sidebar() -> str:
@@ -83,19 +91,21 @@ def sidebar() -> str:
                 st.session_state.user_state = check_user(username=st.session_state.bgg_username)
                 if st.session_state.user_state == "User_found":
                     import_user_data(st.session_state.bgg_username, refresh_user_data)
+                    st.session_state.user_state = "User_freshly_imported"
                 st.session_state.can_present = True
             st.rerun()
         else:
             with st.status("Importing data...", expanded=False):
                 pass
+        contact_form()
         return st.session_state.bgg_username
 
 
 def main():
     st.session_state.bgg_username = sidebar()
     if st.session_state.can_present:
-        present_stats(st.session_state.bgg_username, st.session_state.user_state)
-    # extra_admin(st.session_state.bgg_username)
+        present_stats(st.session_state.bgg_username)
+    # extra_admin()
     check_for_new_data()
 
 
@@ -109,5 +119,14 @@ if __name__ == "__main__":
                     </style></head><body></body></html>
                 """, unsafe_allow_html=True)
     main()
-    # TODO rating stat - show graph based on min and max available values
     # TODO new game appears in a new historic file - what will happen?
+    # TODO contact form so user can send feedback
+    # TODO schema for BGG TOP list
+    # TODO stat for every year: average publication year / complexity of games tried
+    # TODO stat for every year: average publication year / complexity of games played
+    # TODO stat for every year: average publication year / complexity of games known
+    # TODO favor games: plays with top10 games in time
+    # TODO favor games: most played game every year
+    # TODO favor games: highest rated game for every year by publication year
+    # TODO favor games: highest rated game for every year among the newly tried games that year
+    # TODO stat: % of newly tried games - how many were published that year / earlier
