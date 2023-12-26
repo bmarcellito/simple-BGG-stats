@@ -39,8 +39,10 @@ if __name__ == "__main__":
         initial_load()
     main()
 
+    # TODO remove not used columns from globals and collections to save memory
+    # TODO save feedback
+    # TODO memory leak
     # TODO new game appears in a new historic file - what will happen?
-    # TODO contact form so user can send feedback
     # TODO schema for BGG TOP list
     # TODO stat for every year: average publication year / complexity of games tried
     # TODO stat for every year: average publication year / complexity of games played
@@ -50,5 +52,3 @@ if __name__ == "__main__":
     # TODO favor games: highest rated game for every year by publication year
     # TODO favor games: highest rated game for every year among the newly tried games that year
     # TODO stat: % of newly tried games - how many were published that year / earlier
-    # TODO remove not used columns from globals and collections to save memory
-    # TODO save feedback
