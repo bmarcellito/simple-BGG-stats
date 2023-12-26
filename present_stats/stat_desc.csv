@@ -75,7 +75,7 @@ Data used:
 - ideal player number is calculated from the BGG votes. Calculation for each player number: number of 'best' votes*3 + number of 'recommended' votes*1 + number of 'not recommended' votes*0"
 12,intro,"""...BoardGameGeek is an online resource and community that aims to be the definitive source for board game and card game content. The site is updated on a real-time basis by its large and still growing user base — more than two million registered users! — making the Geek the largest and most up-to-date place to get gaming information! BGG features reviews, ratings, images, play-aids, translations, and session reports from board game geeks around the world, as well as live discussion forums...""
 
-Simple BGG stats was created to provide you comprehensive statistits over the user data recorded on BGG. Once playing for year, you grow curious about your own numbers, like what are my favorite games, designers, ... BGG does not provide you easy answer. However it has API to collect all raw data to answer such questions. So type a user name and see what is your favorite...
+Simple BGG stats was created to provide you comprehensive statistics over the user data recorded on BGG. Once playing for year, you grow curious about your own numbers, like what are my favorite games, designers, ... BGG does not provide you easy answer. However it has API to collect all raw data to answer such questions. So type a user name and see what is your favorite...
 
 This is a personal project by Marcell Bendik, not related to BGG.
 

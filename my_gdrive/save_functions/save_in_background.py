@@ -54,7 +54,8 @@ def save(gdrive_folder: str, gdrive_filename: str, df: pd.DataFrame, concat: lis
     except Exception as e:
         logger.error(f'Cannot delete {gdrive_filename}. {e}')
     try:
-        file_id = save_new_zip_file(service=service, parent_folder=gdrive_folder, file_name=gdrive_filename, df=df_merged)
+        file_id = save_new_zip_file(service=service, parent_folder=gdrive_folder, file_name=gdrive_filename,
+                                    df=df_merged)
     except Exception as e:
         logger.error(f'Cannot save {gdrive_filename}. {e}')
         file_id = ""

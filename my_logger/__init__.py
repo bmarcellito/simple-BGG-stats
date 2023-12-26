@@ -5,6 +5,7 @@ import time
 
 import streamlit as st
 
+
 def timeit(func):
     def timed(*args, **kwargs):
         ts = time.time()
@@ -32,11 +33,12 @@ def getlogger(name):
     syslog.setFormatter(formatter)
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    logger = logging.getLogger(name)
-    logger.addHandler(syslog)
-    logger.propagate = False
+    get_logger = logging.getLogger(name)
+    get_logger.addHandler(syslog)
+    get_logger.propagate = False
     # logger.setLevel(logging.INFO)
-    return logger
+    return get_logger
+
 
 logger = getlogger(__name__)
 logger.propagate = False

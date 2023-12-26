@@ -2,7 +2,7 @@ import streamlit as st
 
 from present_stats.add_description import add_description
 from present_stats.h_index.calculate_h_index import calculate_h_index
-from presentation_hack import new_stat_selected
+from present_stats.new_stat_selected import new_stat_selected
 
 
 def present_h_index() -> None:

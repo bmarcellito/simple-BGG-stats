@@ -2,5 +2,6 @@ lxml
 pandas
 statsmodels
 plotly
+requests
 google-api-python-client
 streamlit

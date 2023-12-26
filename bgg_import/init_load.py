@@ -112,3 +112,10 @@ def init_load() -> None:
     add_script_run_ctx(thread_maintain_tokens)
     thread_maintain_tokens.start()
     return None
+
+
+def initial_load() -> None:
+    thread_global_import = Thread(target=init_load)
+    thread_global_import.name = "import_globals"
+    add_script_run_ctx(thread_global_import)
+    thread_global_import.start()

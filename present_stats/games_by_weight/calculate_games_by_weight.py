@@ -1,5 +1,4 @@
 import pandas as pd
-import streamlit as st
 
 
 def calculate_games_by_weight(df_game_info: pd.DataFrame, df_collection: pd.DataFrame, df_plays: pd.DataFrame,
