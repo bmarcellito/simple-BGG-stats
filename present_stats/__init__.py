@@ -23,6 +23,9 @@ def set_state(username: str) -> None:
         # new user has been imported - let's start from the first statistic
         if st.session_state.previous_user != username:
             st.session_state.stat_state = 0
+            st.session_state.previous_user = username
+    else:
+        st.session_state.previous_user = username
 
 
 def present_stat_selector(username: str) -> None:

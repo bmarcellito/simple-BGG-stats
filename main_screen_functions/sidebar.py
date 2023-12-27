@@ -11,17 +11,16 @@ def user_name_box() -> str:
     with st.form("my_form"):
         st.session_state.bgg_username = st.text_input('Enter a BGG username', key="input_username")
         submitted = st.form_submit_button(label="Submit", on_click=username_button_pushed)
-    refresh_user_data = st.secrets["refresh_user_data"]
-    st.caption(f'User data is cached for {refresh_user_data} days. Push the button to refresh it')
     return submitted
 
 
 def user_refresh_box() -> None:
-    if st.session_state.user_state == "User_imported":
-        button_disabled = False
-    else:
-        button_disabled = True
-    if st.button(label="Refresh selected user's data", disabled=button_disabled, on_click=refresh_button_pushed):
+    refresh_user_data = st.secrets["refresh_user_data"]
+    st.caption(f'User data is cached for {refresh_user_data} days. Push the button to refresh it')
+    if "refresh_button_disabled" not in st.session_state:
+        st.session_state.refresh_button_disabled = True
+    if st.button(label="Refresh selected user's data", disabled=st.session_state.refresh_button_disabled,
+                 on_click=refresh_button_pushed):
         st.session_state.ph_import = st.empty()
         st.session_state.ph_import.empty()
         sleep(0.1)
@@ -29,6 +28,7 @@ def user_refresh_box() -> None:
             user_collection.clear()
             user_plays.clear()
             import_user_data(st.session_state.bgg_username, 0)
+        st.rerun()
 
 
 def user_import_box(submitted: str) -> None:
@@ -43,6 +43,9 @@ def user_import_box(submitted: str) -> None:
                 refresh_user_data = st.secrets["refresh_user_data"]
                 import_user_data(st.session_state.bgg_username, refresh_user_data)
                 st.session_state.user_state = "User_imported"
+                st.session_state.refresh_button_disabled = False
+            else:
+                st.session_state.refresh_button_disabled = True
         st.rerun()
     else:
         with st.status("Importing data...", expanded=False):

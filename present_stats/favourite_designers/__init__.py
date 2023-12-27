@@ -1,7 +1,7 @@
 import streamlit as st
-from present_stats.add_description import add_description
 
 from present_stats.favourite_designers.calculate_favourite_designers import calculate_favourite_designers
+from present_stats.add_description import add_description
 
 
 def present_favourite_designers() -> None:

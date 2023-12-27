@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime
 
-
 from present_stats.bgg_toplist.calculate_bgg_toplist import calculate_bgg_toplist
 from present_stats.add_description import add_description
 

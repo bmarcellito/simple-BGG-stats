@@ -3,3 +3,6 @@ magicEnabled = false
 
 [server]
 fileWatcherType = "poll"
+
+[client]
+showErrorDetails=false
