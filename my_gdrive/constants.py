@@ -20,7 +20,8 @@ def get_gdrive_filenames() -> dict:
         "playnum_infodb": "playnum_infoDB",
         "user_collection": "collection",
         "user_plays": "plays",
-        "check_user_cache": "check_user_cache"
+        "check_user_cache": "check_user_cache",
+        "feedbacks": "feedbacks"
     }
     return filenames
 

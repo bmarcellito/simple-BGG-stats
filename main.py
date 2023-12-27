@@ -40,7 +40,6 @@ if __name__ == "__main__":
 
     # TODO remove not used columns from globals and collections to save memory
     # TODO save feedback
-    # TODO memory leak
     # TODO new game appears in a new historic file - what will happen?
     # TODO schema for BGG TOP list
     # TODO stat for every year: average publication year / complexity of games tried

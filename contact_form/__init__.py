@@ -1,4 +1,7 @@
 import streamlit as st
+import pandas as pd
+
+from my_gdrive.save_functions import save_background
 
 
 def contact_form_button() -> None:
@@ -18,9 +21,12 @@ def present_contact_sent() -> None:
 
 def present_contact_form() -> None:
     st.title("Contact form")
+    name = st.text_input('Enter your name (optional)')
+    email = st.text_input('E-mail address (optional)')
     txt = st.text_area("Give us feedback!")
     if st.button(label='Send your feedback'):
-        print(txt)
+        df = pd.DataFrame(data={"name": name, "user_email": email, "feedback": txt}, index=[0])
+        save_background(parent_folder="folder_processed", filename="feedbacks", df=df, concat=["feedback"])
         st.session_state.contact_form_state = "Sent"
         st.rerun()
     if st.button('Later, back to the statistics'):
