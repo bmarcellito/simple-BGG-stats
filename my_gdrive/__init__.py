@@ -3,12 +3,14 @@ import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-from my_gdrive.constants import private_key_id, private_key, client_email, client_id
-
 
 @st.cache_data(max_entries=10)
 def authenticate() -> googleapiclient.discovery.Resource:
     scopes = ['https://www.googleapis.com/auth/drive']
+    private_key_id = st.secrets["private_key_id"]
+    private_key = st.secrets["private_key"]
+    client_email = st.secrets["client_email"]
+    client_id = st.secrets["client_id"]
     service_account_info = {
         "type": "service_account",
         "project_id": "simple-bgg-stat-service-acc",

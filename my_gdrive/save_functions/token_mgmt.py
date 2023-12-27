@@ -8,11 +8,12 @@ from googleapiclient.http import MediaIoBaseUpload
 from my_gdrive import authenticate
 from my_gdrive.search import search
 from my_logger import logger
-from my_gdrive.constants import extension_normal, get_name
+from my_gdrive.constants import get_name
 
 
 def save_new_csv_file(service: googleapiclient.discovery.Resource, parent_folder: str,
                       file_name: str, df: pd.DataFrame) -> str:
+    extension_normal = ".csv"
     file_metadata = {
         'name': file_name + extension_normal,
         'parents': [parent_folder],
@@ -30,19 +31,22 @@ def save_new_csv_file(service: googleapiclient.discovery.Resource, parent_folder
 def maintain_tokens():
     # delete old broken tokens - should run in the background
     service = authenticate()
-    while 0 == 0:
-        items = search(query=f'"folder_session" in parents')
-        if items:
-            for item in items:
-                item_time = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
-                just_now = datetime.utcnow()
-                if just_now - item_time > timedelta(seconds=600):
-                    try:
-                        service.files().delete(fileId=item["id"]).execute()
-                        logger.info(f'Old token deleted: {item["name"]}')
-                    except Exception as e:
-                        logger.error(f'Failed old token deleted: {item["name"]}. {e}')
-        sleep(5)
+    try:
+        while True:
+            items = search(query=f'"folder_session" in parents')
+            if items:
+                for item in items:
+                    item_time = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                    just_now = datetime.utcnow()
+                    if just_now - item_time > timedelta(seconds=600):
+                        try:
+                            service.files().delete(fileId=item["id"]).execute()
+                            logger.info(f'Old token deleted: {item["name"]}')
+                        except Exception as e:
+                            logger.error(f'Failed old token deleted: {item["name"]}. {e}')
+            sleep(5)
+    except KeyboardInterrupt:
+        print("stopped!")
 
 
 def create_token(service: googleapiclient.discovery.Resource) -> str:

@@ -34,9 +34,8 @@ if __name__ == "__main__":
     st.set_page_config(layout="wide")
     presentation_hack()
     if "user_state" not in st.session_state:
-        st.session_state.bgg_username = ""
-        st.session_state.user_state = "No_user_selected"
         initial_load()
+        st.session_state.user_state = "No_user_selected"
     main()
 
     # TODO remove not used columns from globals and collections to save memory

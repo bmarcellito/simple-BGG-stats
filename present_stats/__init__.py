@@ -15,54 +15,47 @@ from present_stats.user_and_bgg_ratings import present_user_and_bgg_ratings
 from present_stats.add_description import add_description
 from present_stats.new_stat_selected import new_stat_selected
 
-select_options = ['Basic statistics',
-                  'User\'s collection',
-                  'H-index',
-                  'Favourite designers',
-                  'Games tried grouped by year of publication',
-                  'Age of games played',
-                  'Weight distribution of user\'s games and plays',
-                  'Play statistics by year',
-                  'Games known from BGG top list',
-                  'Stat around game weight',
-                  'Stat around ratings']
 
-
-def change_of_stat() -> None:
-    st.session_state.previous_stat = st.session_state.stat_key
-    new_stat_selected()
-
-
-def remember_my_state(username: str) -> None:
-    st.session_state.ph_stat_sel = st.empty()
-    st.session_state.ph_stat_sel.text = ""
-    if "previous_stat" not in st.session_state:
-        st.session_state.previous_stat = select_options[0]
+def set_state(username: str) -> None:
     if "stat_state" not in st.session_state:
         st.session_state.stat_state = 0
     if "previous_user" in st.session_state:
+        # new user has been imported - let's start from the first statistic
         if st.session_state.previous_user != username:
             st.session_state.stat_state = 0
-        else:
-            st.session_state.stat_state = select_options.index(st.session_state.previous_stat)
-    st.session_state.previous_user = username
 
 
 def present_stat_selector(username: str) -> None:
+    select_options = ['Basic statistics',
+                      'User collection',
+                      'Favourite designers',
+                      'H-index',
+                      'Games tried grouped by year of publication',
+                      'Age of games played',
+                      'Weight distribution of user\'s games and plays',
+                      'Play statistics by year',
+                      'Games known from BGG top list',
+                      'Stat around game weight',
+                      'Stat around ratings']
+
     st.title(f'Statistics of {username}')
-    remember_my_state(username)
+    st.session_state.ph_stat_sel = st.empty()
+    set_state(username)
 
     with st.session_state.ph_stat_sel.container():
-        option = st.selectbox(label='Choose a statistic', options=select_options, on_change=change_of_stat,
-                              index=st.session_state.stat_state, key="stat_key")
+        st.session_state.option = st.selectbox(label='Choose a statistic',
+                                               options=select_options,
+                                               index=st.session_state.stat_state,
+                                               on_change=new_stat_selected,
+                                               key="stat_key")
     while "global_game_infodb" not in st.session_state:
-        # still loading - has to wait a bit
+        # initial loading is still happening - has to wait a bit
         sleep(1)
 
-    match option:
+    match st.session_state.option:
         case "Basic statistics":
             present_basics()
-        case "User\'s collection":
+        case "User collection":
             present_collection()
         case "Favourite designers":
             present_favourite_designers()

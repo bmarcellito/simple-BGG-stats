@@ -4,7 +4,6 @@ import googleapiclient.discovery
 from googleapiclient.http import MediaIoBaseUpload
 
 from my_gdrive import authenticate
-from my_gdrive.constants import extension_compressed
 from my_gdrive.search import search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions.token_mgmt import create_token, wait_for_my_turn, delete_token
@@ -13,6 +12,8 @@ from my_logger import logger
 
 def save_new_zip_file(service: googleapiclient.discovery.Resource, parent_folder: str,
                       file_name: str, df: pd.DataFrame):
+    extension_normal = ".csv"
+    extension_compressed = ".zip"
     file_metadata = {
         'name': file_name + extension_compressed,
         'parents': [parent_folder],
@@ -20,7 +21,7 @@ def save_new_zip_file(service: googleapiclient.discovery.Resource, parent_folder
     }
     buffer = io.BytesIO()
     df.to_csv(path_or_buf=buffer, sep=",", index=False, encoding="UTF-8",
-              compression={'method': 'zip', "archive_name": f"{file_name}.csv", 'compresslevel': 6})
+              compression={'method': 'zip', "archive_name": f"{file_name}{extension_normal}", 'compresslevel': 6})
     buffer.seek(0)
     media_content = MediaIoBaseUpload(buffer, mimetype='application/zip')
     file = service.files().create(body=file_metadata, media_body=media_content, fields="id").execute()
