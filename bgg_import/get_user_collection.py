@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from my_gdrive.search import search
+from my_gdrive.create_folder import create_folder
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
@@ -34,8 +35,10 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
     items = search(query=q)
     if not items:
         logger.error(f'No folder for user {username}. Cannot save collection.')
-        return pd.DataFrame()
-    user_folder_id = items[0]["id"]
+        user_folder_id = create_folder(parent_folder="folder_user", folder_name=username)
+        # return pd.DataFrame()
+    else:
+        user_folder_id = items[0]["id"]
 
     q = f'"{user_folder_id}" in parents and name contains "user_collection"'
     item = search(query=q)
