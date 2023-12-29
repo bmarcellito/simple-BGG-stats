@@ -43,7 +43,7 @@ def build_item_db_all(df_new_games: pd.DataFrame, df_new_plays: pd.DataFrame, gl
         if not games_to_import_list:
             return global_game_infodb, global_play_numdb
 
-        st.caption("Importing detailed item information for user's collection...")
+        st.caption("STEP 3/3: Importing detailed item information for user's collection...")
         sum_error = False
         chunk = 100
         for i in range((len(games_to_import_list) // chunk)+1):

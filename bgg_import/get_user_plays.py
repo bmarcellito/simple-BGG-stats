@@ -19,7 +19,7 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    st.caption(f'Importing plays of {username}...')
+    st.caption(f'STEP 2/3: Importing plays of {username}...')
     df = pd.DataFrame()
 
     q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '

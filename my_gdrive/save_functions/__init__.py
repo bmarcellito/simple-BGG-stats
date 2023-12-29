@@ -19,7 +19,6 @@ def save_background(parent_folder: str, filename: str, df: pd.DataFrame, concat:
 def overwrite_background(parent_folder: str, filename: str, df: pd.DataFrame) -> None:
     updated_parent_folder = replace_names(parent_folder)
     updated_filename = replace_names(filename)
-    print(f'{updated_parent_folder}/{updated_filename}')
     thread_overwrite = Thread(target=save, args=(updated_parent_folder, updated_filename, df, []))
     thread_overwrite.name = f"save_{parent_folder}/{filename}"
     add_script_run_ctx(thread_overwrite)

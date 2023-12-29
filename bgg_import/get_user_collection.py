@@ -29,7 +29,7 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    st.caption(f'Importing collection of {username}...')
+    st.caption(f'STEP 1/3: Importing collection of {username}...')
     q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '
          f'and name contains "{username}"')
     items = search(query=q)
