@@ -26,6 +26,11 @@ def present_favourite_designers() -> None:
         if len(df_favourite_designer) == 0:
             st.write("No data to show :(")
         else:
+            # st.markdown("""
+            # <style>
+            # td {vertical-align: top;}
+            # </style>
+            # """, unsafe_allow_html=True)
             st.table(df_favourite_designer)
             add_description("favourite_designers")
     return None
