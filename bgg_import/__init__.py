@@ -10,6 +10,9 @@ from my_logger import timeit
 @timeit
 def import_user_data(username: str, refresh: int) -> None:
     st.caption('Based on the size of the collection, importing can take couple of minutes!    \nPlease be patient!')
+    if refresh == 0:
+        user_collection.clear()
+        user_plays.clear()
     st.session_state.my_collection = user_collection(username, refresh)
     st.session_state.my_plays = user_plays(username, refresh)
     while ("global_game_infodb" not in st.session_state) or ("global_play_numdb" not in st.session_state):

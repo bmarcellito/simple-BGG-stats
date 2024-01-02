@@ -2,44 +2,57 @@ import streamlit as st
 import pandas as pd
 
 from my_gdrive.save_functions import save_background
+from main_screen_functions.presentation_hack import clear_ph_element
 
 
-def contact_form_button() -> None:
-    if st.button(label="Send feedback!"):
+def contact_form_button(main_screen) -> None:
+    def contact_button_pushed(el_main_screen) -> None:
+        clear_ph_element(el_main_screen)
         st.session_state.previous_user_state = st.session_state.user_state
         st.session_state.user_state = "Contact_form"
         st.session_state.contact_form_state = "Init"
 
+    st.button(label="Send feedback!", on_click=contact_button_pushed, args=[main_screen])
 
-def present_contact_sent() -> None:
+
+def present_contact_sent(main_screen) -> None:
+    def thx_button_pushed(el_main_screen) -> None:
+        st.session_state.user_state = st.session_state.previous_user_state
+        clear_ph_element(el_main_screen)
+
     st.title("Contact form sent")
     st.write('Thank you!')
-    if st.button('Back to the statistics!'):
+    st.button(label='Back to the statistics!', on_click=thx_button_pushed, args=[main_screen])
+
+
+def present_contact_form(main_screen) -> None:
+    def send_button_pushed(el_main_screen) -> None:
+        ph_save = st.empty()
+        with ph_save.status("Saving feedback... please wait"):
+            df = pd.DataFrame(data={"name": name, "user_email": email, "feedback": txt}, index=[0])
+            save_background(parent_folder="folder_processed", filename="feedbacks", df=df, concat=["feedback"])
+            st.session_state.contact_form_state = "Sent"
+        ph_save.empty()
+        clear_ph_element(el_main_screen)
+
+    def later_button_pushed(el_main_screen) -> None:
         st.session_state.user_state = st.session_state.previous_user_state
-        st.rerun()
+        clear_ph_element(el_main_screen)
 
-
-def present_contact_form() -> None:
     st.title("Contact form")
     name = st.text_input('Enter your name (optional)')
     email = st.text_input('E-mail address (optional)')
     txt = st.text_area("Give us feedback!")
-    if st.button(label='Send your feedback'):
-        df = pd.DataFrame(data={"name": name, "user_email": email, "feedback": txt}, index=[0])
-        save_background(parent_folder="folder_processed", filename="feedbacks", df=df, concat=["feedback"])
-        st.session_state.contact_form_state = "Sent"
-        st.rerun()
-    if st.button('Later, back to the statistics'):
-        st.session_state.user_state = st.session_state.previous_user_state
-        st.rerun()
+    st.button(label='Send your feedback', on_click=send_button_pushed, args=[main_screen])
+    st.button(label='Later, back to the statistics', on_click=later_button_pushed, args=[main_screen])
 
 
-def contact_form() -> None:
+def contact_form(main_screen) -> None:
     if "contact_form_state" not in st.session_state:
         st.session_state.contact_form_state = "Init"
     match st.session_state.contact_form_state:
         case "Init":
-            present_contact_form()
+            present_contact_form(main_screen)
         case "Sent":
-            present_contact_sent()
+            present_contact_sent(main_screen)
     return None

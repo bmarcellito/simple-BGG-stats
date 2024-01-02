@@ -2,38 +2,11 @@ from time import sleep
 import streamlit as st
 
 
-def username_button_pushed() -> None:
-    if "ph_import" in st.session_state:
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-    if "ph_stat" in st.session_state:
-        st.session_state.ph_stat.empty()
-        sleep(0.1)
-        st.session_state.ph_stat.empty()
-        sleep(0.1)
-        st.session_state.ph_stat.empty()
-        sleep(0.1)
-
-
-def refresh_button_pushed() -> None:
-    if "ph_import" in st.session_state:
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-    if "ph_stat" in st.session_state:
-        st.session_state.ph_stat.empty()
-        sleep(0.1)
-        st.session_state.ph_stat.empty()
-        sleep(0.1)
-        st.session_state.ph_stat.empty()
-        sleep(0.1)
+def clear_ph_element(element) -> None:
+    element.empty()
+    sleep(0.1)
+    element.empty()
+    sleep(0.1)
 
 
 def presentation_hack() -> None:

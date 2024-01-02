@@ -4,11 +4,10 @@ from present_stats import add_description
 
 
 def present_starting_screen() -> None:
-    st.session_state.ph_stat = st.empty()
-    with st.session_state.ph_stat.container():
-        st.title("Statistics")
+    with st.container():
+        st.title("Statistics from BoardGameGeek.com")
         st.write("Enter a user name first!")
-        st.write("Use the sidebar on the left! Click the tiny arrow in the top left corner to open it.")
+        st.write("Use the sidebar on the left! Don't see it? Click the tiny arrow in the top left corner to open it.")
         st.write("")
         add_description(title="intro", method="description")
     return None

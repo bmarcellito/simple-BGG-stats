@@ -2,7 +2,7 @@ import streamlit as st
 
 from main_screen_functions.presentation_hack import presentation_hack
 from bgg_import.init_load import initial_load
-from main_screen_functions.sidebar import sidebar
+from main_screen_functions.sidebar import present_sidebar
 from present_stats import present_stat_selector
 from main_screen_functions.present_invalid_user import present_invalid_user
 from main_screen_functions.present_starting_screen import present_starting_screen
@@ -11,7 +11,7 @@ from main_screen_functions.extra_admin import extra_admin
 from bgg_import.check_for_new_data import check_for_new_data
 
 
-def main_screen() -> None:
+def present_main_screen(main_screen) -> None:
     match st.session_state.user_state:
         case "User_imported":
             present_stat_selector(st.session_state.bgg_username)
@@ -20,14 +20,18 @@ def main_screen() -> None:
         case "No_valid_user":
             present_invalid_user()
         case "Contact_form":
-            contact_form()
+            contact_form(main_screen)
 
 
 def main():
-    sidebar()
-    main_screen()
-    check_for_new_data()
-    extra_admin()
+    sidebar = st.sidebar.empty()
+    main_screen = st.empty()
+    with sidebar.container():
+        present_sidebar(main_screen)
+    with main_screen.container():
+        present_main_screen(main_screen)
+        check_for_new_data()
+        extra_admin()
 
 
 if __name__ == "__main__":

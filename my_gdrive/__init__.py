@@ -4,7 +4,6 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 
-@st.cache_data(max_entries=10)
 def authenticate() -> googleapiclient.discovery.Resource:
     scopes = ['https://www.googleapis.com/auth/drive']
     private_key_id = st.secrets["private_key_id"]

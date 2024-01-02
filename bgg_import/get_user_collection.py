@@ -49,7 +49,7 @@ def user_collection(username: str, refresh: int) -> pd.DataFrame:
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
-            st.caption(f'Importing finished. Number of games in collection: {len(df)}')
+            st.caption(f'Cached data loaded. Number of games in collection: {len(df)}')
             logger.info(f'Collection of {username} loaded. It is {how_fresh} old.')
             return df
 

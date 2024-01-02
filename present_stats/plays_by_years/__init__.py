@@ -5,14 +5,12 @@ from present_stats.plays_by_years.calculate_plays_by_years import calculate_play
 
 
 def present_plays_by_years() -> None:
-    st.session_state.ph_stat = st.empty()
-    with st.session_state.ph_stat.container():
-        with st.spinner('Please wait, calculating statistics...'):
-            df_result = calculate_plays_by_years(st.session_state.my_plays)
+    with st.spinner('Please wait, calculating statistics...'):
+        df_result = calculate_plays_by_years(st.session_state.my_plays)
 
-        if len(df_result) == 0:
-            st.write("No data to show :(")
-        else:
-            st.dataframe(df_result, hide_index=True, use_container_width=True)
-            add_description("yearly_plays")
+    if len(df_result) == 0:
+        st.write("No data to show :(")
+    else:
+        st.dataframe(df_result, hide_index=True, use_container_width=True)
+        add_description("yearly_plays")
     return None

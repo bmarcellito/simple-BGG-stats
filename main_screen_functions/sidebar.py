@@ -1,66 +1,88 @@
-from time import sleep
 import streamlit as st
 
-from bgg_import import user_collection, user_plays, import_user_data
 from bgg_import.check_user import check_user
+from bgg_import import import_user_data
 from contact_form import contact_form_button
-from main_screen_functions.presentation_hack import username_button_pushed, refresh_button_pushed
+from main_screen_functions.presentation_hack import clear_ph_element
 
 
-def user_name_box() -> str:
-    with st.form("my_form"):
-        st.session_state.bgg_username = st.text_input('Enter a BGG username', key="input_username")
-        submitted = st.form_submit_button(label="Submit", on_click=username_button_pushed)
-    return submitted
+def user_name_box(main_screen, ph_import) -> None:
+    def username_button_pushed(el_main_screen, el_import) -> None:
+        if "bgg_username" not in st.session_state:
+            st.session_state.bgg_username = ""
+        if st.session_state.bgg_username == "":
+            st.session_state.user_state = "No_user_selected"
+        else:
+            st.session_state.importing = "Regular_import"
+        clear_ph_element(el_main_screen)
+        clear_ph_element(el_import)
+
+    st.text_input('Enter a BGG username and hit enter', key="bgg_username", on_change=username_button_pushed,
+                  args=[main_screen, ph_import])
+    return None
 
 
-def user_refresh_box() -> None:
-    refresh_user_data = st.secrets["refresh_user_data"]
-    st.caption(f'User data is cached for {refresh_user_data} days. Push the button to refresh it')
+def user_refresh_box(main_screen, ph_import) -> None:
+    def refresh_button_pushed(el_main_screen, el_ph_import) -> None:
+        clear_ph_element(el_main_screen)
+        clear_ph_element(el_ph_import)
+        st.session_state.importing = "Refresh_import"
+
     if "refresh_button_disabled" not in st.session_state:
         st.session_state.refresh_button_disabled = True
-    if st.button(label="Refresh selected user's data", disabled=st.session_state.refresh_button_disabled,
-                 on_click=refresh_button_pushed):
-        st.session_state.ph_import = st.empty()
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-        with st.session_state.ph_import.status("Reimporting data...", expanded=True):
-            user_collection.clear()
-            user_plays.clear()
-            import_user_data(st.session_state.bgg_username, 0)
-        st.rerun()
+    if not st.session_state.refresh_button_disabled:
+        refresh_user_data = st.secrets["refresh_user_data"]
+        st.caption(f'Imported user data is cached for {refresh_user_data} days. Push the button to import fresh data')
+        st.button(label="Refresh user's data", on_click=refresh_button_pushed, args=[main_screen, ph_import])
 
 
-def user_import_box(submitted: str) -> None:
-    if submitted:
-        st.session_state.ph_import = st.empty()
-        st.session_state.ph_import.empty()
-        sleep(0.1)
-        with st.session_state.ph_import.status("Importing data...", expanded=True):
+def user_import_box() -> None:
+    if "importing" not in st.session_state:
+        st.session_state.importing = "No_importing"
+    match st.session_state.importing:
+        case "No_importing":
+            with st.status("No importing needed", expanded=False):
+                pass
+            return None
+        case "Refresh_import":
+            label = "Reimporting data..."
+            refresh_user_data = 0
+        case "Regular_import":
+            label = "Importing data..."
+        case _:
+            label = ""
+
+    with st.status(label=label, expanded=True):
+        if st.session_state.importing == "Regular_import":
             st.session_state.user_state = "Check_user"
             st.session_state.user_state = check_user(username=st.session_state.bgg_username)
-            if st.session_state.user_state == "User_found":
-                refresh_user_data = st.secrets["refresh_user_data"]
-                import_user_data(st.session_state.bgg_username, refresh_user_data)
-                st.session_state.user_state = "User_imported"
-                st.session_state.refresh_button_disabled = False
-            else:
+            if st.session_state.user_state == "No_valid_user":
                 st.session_state.refresh_button_disabled = True
-        st.rerun()
-    else:
-        with st.status("Importing data...", expanded=False):
-            pass
+                st.session_state.importing = "No_importing"
+                return None
+            refresh_user_data = st.secrets["refresh_user_data"]
+        import_user_data(st.session_state.bgg_username, refresh_user_data)
+
+    st.session_state.user_state = "User_imported"
+    st.session_state.refresh_button_disabled = False
+    st.session_state.importing = "No_importing"
+    return None
 
 
-def contact_form_box() -> None:
-    contact_form_button()
+def contact_form_box(main_screen) -> None:
+    contact_form_button(main_screen)
 
 
-def sidebar() -> None:
-    with st.sidebar:
-        st.title("BGG statistics")
-        submitted = user_name_box()
-        user_refresh_box()
-        user_import_box(submitted)
-        contact_form_box()
-        return None
+def present_sidebar(main_screen) -> None:
+    st.title("BGG statistics")
+    ph_interaction = st.empty()
+    ph_import = st.empty()
+    ph_contact = st.empty()
+    with ph_interaction.container():
+        user_name_box(main_screen, ph_import)
+    with ph_import.container():
+        user_import_box()
+        user_refresh_box(main_screen, ph_import)
+    with ph_contact.container():
+        contact_form_box(main_screen)
+    return None

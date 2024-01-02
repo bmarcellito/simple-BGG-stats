@@ -44,12 +44,12 @@ def save(gdrive_folder: str, gdrive_filename: str, df: pd.DataFrame, concat: lis
         return file_id
     # overwrite existing file
     existing_file_id = items[0]["id"]
-    df_existing = load_zip(file_id=items[0]["id"])
     if len(concat) > 0:
+        df_existing = load_zip(file_id=items[0]["id"])
         df_merged = pd.concat([df_existing, df], ignore_index=True)
         df_merged.drop_duplicates(subset=concat, keep="last", inplace=True, ignore_index=True)
     else:
-        df_merged = df_existing
+        df_merged = df
     try:
         service.files().delete(fileId=existing_file_id).execute()
     except Exception as e:
