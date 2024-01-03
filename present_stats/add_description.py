@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 
-@st.cache_data()
+@st.cache_resource(show_spinner=False, ttl=24*3600)
 def add_description(title: str, method="explanation") -> None:
     df = pd.read_csv("present_stats/stat_desc.csv", index_col="topic")
     text_to_show = df.at[title, "description"]

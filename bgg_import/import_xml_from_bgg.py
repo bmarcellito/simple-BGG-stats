@@ -11,7 +11,6 @@ def import_xml_from_bgg(link: str) -> str:
     ph_xml_import = st.empty()
     while True:
         try_counter += 1
-        ph_xml_import.empty()
         try:
             response = requests.get(f'https://boardgamegeek.com/xmlapi2/{link}', timeout=10)
         except requests.exceptions.HTTPError as err:
@@ -26,6 +25,7 @@ def import_xml_from_bgg(link: str) -> str:
         except requests.exceptions.RequestException as err:
             logger.error(f'Other request error: {err}. Link: {link}')
             continue
+
         match response.status_code:
             case 200:
                 break
@@ -37,7 +37,7 @@ def import_xml_from_bgg(link: str) -> str:
             case 429:
                 ph_xml_import.caption(f'Request {try_counter}: BGG is busy to answer...')
             case _:
-                print(response.status_code)
+                ph_xml_import.caption(response.status_code)
         # BGG cannot handle huge amount of requests. Let's give it some rest!
         my_bar = st.progress(0, text="Waiting before next request...")
         for percent_complete in range(10):
@@ -45,6 +45,5 @@ def import_xml_from_bgg(link: str) -> str:
             my_bar.progress((percent_complete+1)*10, text="Waiting before next request...")
         time.sleep(1)
         my_bar.empty()
-        # time.sleep(8)
-    ph_xml_import.empty()
+        ph_xml_import.empty()
     return response.content.decode(encoding="utf-8")

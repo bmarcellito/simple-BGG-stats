@@ -3,6 +3,7 @@ from plotly import express as px
 
 from present_stats.games_by_weight.calculate_games_by_weight import calculate_games_by_weight
 from present_stats.add_description import add_description
+from bgg_import.get_functions import get_game_infodb
 
 
 def present_games_by_weight() -> None:
@@ -13,7 +14,8 @@ def present_games_by_weight() -> None:
         st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
 
     with st.spinner('Please wait, calculating statistics...'):
-        df_weight = calculate_games_by_weight(st.session_state.global_game_infodb, st.session_state.my_collection,
+        df_game_infodb = get_game_infodb()
+        df_weight = calculate_games_by_weight(df_game_infodb, st.session_state.my_collection,
                                               st.session_state.my_plays, st.session_state.toggle_owned,
                                               st.session_state.toggle_expansion)
 
@@ -31,4 +33,5 @@ def present_games_by_weight() -> None:
         fig.update_layout(bargap=0.1)
         st.plotly_chart(fig, theme="streamlit", use_container_width=True)
         add_description("games_by_weight")
+    del df_game_infodb
     return None

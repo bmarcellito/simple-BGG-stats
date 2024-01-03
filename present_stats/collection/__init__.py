@@ -2,6 +2,7 @@ import streamlit as st
 
 from present_stats.add_description import add_description
 from present_stats.collection.calculate_collection import calculate_collection
+from bgg_import.get_functions import get_game_infodb, get_play_no_db
 
 
 def present_collection():
@@ -13,9 +14,10 @@ def present_collection():
     player_range = st.slider('Narrow on ideal player number', 1, 8, (1, 8), key='stat_playernum')
 
     with st.spinner('Please wait, calculating statistics...'):
-        stat = calculate_collection(st.session_state.my_collection, st.session_state.global_game_infodb,
-                                    st.session_state.global_play_numdb, st.session_state.toggle_owned,
-                                    st.session_state.toggle_expansion, player_range)
+        df_game_infodb = get_game_infodb()
+        df_play_no_db = get_play_no_db()
+        stat = calculate_collection(st.session_state.my_collection, df_game_infodb, df_play_no_db,
+                                    st.session_state.toggle_owned, st.session_state.toggle_expansion, player_range)
 
     if len(stat) == 0:
         st.write("No data to show :(")
@@ -28,4 +30,6 @@ def present_collection():
             "Link": st.column_config.LinkColumn("BGG link", width="small")
         }, hide_index=True, use_container_width=True)
         add_description("collection")
+    del df_game_infodb
+    del df_play_no_db
     return None

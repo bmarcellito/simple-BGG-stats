@@ -11,7 +11,7 @@ from bgg_import.import_xml_from_bgg import import_xml_from_bgg
 from my_logger import logger
 
 
-@st.cache_data(show_spinner=False, max_entries=10)
+@st.cache_data(show_spinner=False, max_entries=5, ttl=3600)
 def user_collection(username: str, refresh: int) -> pd.DataFrame:
     """
     BGG adds all game you have interacted with into a collection

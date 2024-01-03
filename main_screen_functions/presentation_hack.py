@@ -5,8 +5,8 @@ import streamlit as st
 def clear_ph_element(element) -> None:
     element.empty()
     sleep(0.1)
-    element.empty()
-    sleep(0.1)
+    # element.empty()
+    # sleep(0.1)
 
 
 def presentation_hack() -> None:

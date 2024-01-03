@@ -13,7 +13,7 @@ def user_name_box(main_screen, ph_import) -> None:
         if st.session_state.bgg_username == "":
             st.session_state.user_state = "No_user_selected"
         else:
-            st.session_state.importing = "Regular_import"
+            st.session_state.user_state = "Regular_import"
         clear_ph_element(el_main_screen)
         clear_ph_element(el_import)
 
@@ -26,46 +26,35 @@ def user_refresh_box(main_screen, ph_import) -> None:
     def refresh_button_pushed(el_main_screen, el_ph_import) -> None:
         clear_ph_element(el_main_screen)
         clear_ph_element(el_ph_import)
-        st.session_state.importing = "Refresh_import"
+        st.session_state.user_state = "Refresh_import"
 
-    if "refresh_button_disabled" not in st.session_state:
-        st.session_state.refresh_button_disabled = True
-    if not st.session_state.refresh_button_disabled:
+    if st.session_state.user_state in ["User_imported_now", "User_imported"]:
         refresh_user_data = st.secrets["refresh_user_data"]
         st.caption(f'Imported user data is cached for {refresh_user_data} days. Push the button to import fresh data')
         st.button(label="Refresh user's data", on_click=refresh_button_pushed, args=[main_screen, ph_import])
 
 
 def user_import_box() -> None:
-    if "importing" not in st.session_state:
-        st.session_state.importing = "No_importing"
-    match st.session_state.importing:
-        case "No_importing":
-            with st.status("No importing needed", expanded=False):
-                pass
-            return None
+    match st.session_state.user_state:
         case "Refresh_import":
             label = "Reimporting data..."
             refresh_user_data = 0
         case "Regular_import":
             label = "Importing data..."
         case _:
-            label = ""
+            with st.status("No importing needed", expanded=False):
+                pass
+            return None
 
     with st.status(label=label, expanded=True):
-        if st.session_state.importing == "Regular_import":
+        if st.session_state.user_state == "Regular_import":
             st.session_state.user_state = "Check_user"
             st.session_state.user_state = check_user(username=st.session_state.bgg_username)
             if st.session_state.user_state == "No_valid_user":
-                st.session_state.refresh_button_disabled = True
-                st.session_state.importing = "No_importing"
                 return None
             refresh_user_data = st.secrets["refresh_user_data"]
         import_user_data(st.session_state.bgg_username, refresh_user_data)
-
-    st.session_state.user_state = "User_imported"
-    st.session_state.refresh_button_disabled = False
-    st.session_state.importing = "No_importing"
+    st.session_state.user_state = "User_imported_now"
     return None
 
 

@@ -3,19 +3,16 @@ from datetime import datetime
 
 from present_stats.bgg_toplist.calculate_bgg_toplist import calculate_bgg_toplist
 from present_stats.add_description import add_description
+from bgg_import.get_functions import get_historic_rankings
 
 
 def present_bgg_toplist() -> None:
-    this_year = str(datetime.date(datetime.today()))
-    this_year = int(this_year[0:4])
-    list_of_year = []
-    for i in range(2017, this_year+1):
-        list_of_year.append(i)
-    st.selectbox("Show data from year...", list_of_year, key='sel_year')
+    this_year = datetime.today().year
+    cut_year = st.slider('Which year to start from?', min_value=2017, max_value=this_year)
 
     with st.spinner('Please wait, calculating statistics...'):
-        df_result_cum = calculate_bgg_toplist(st.session_state.global_historic_ranking, st.session_state.my_plays,
-                                              st.session_state.sel_year)
+        df_historic_rankings = get_historic_rankings()
+        df_result_cum = calculate_bgg_toplist(df_historic_rankings, st.session_state.my_plays, cut_year)
 
     if len(df_result_cum) == 0:
         st.write("No data to show :(")
@@ -24,4 +21,5 @@ def present_bgg_toplist() -> None:
         with st.expander("Numerical presentation"):
             st.dataframe(df_result_cum, hide_index=True, use_container_width=True)
         add_description("bgg_toplist")
+    del df_historic_rankings
     return None

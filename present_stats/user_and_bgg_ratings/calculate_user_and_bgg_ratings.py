@@ -7,6 +7,8 @@ def calculate_user_and_bgg_ratings(df_collection: pd.DataFrame, df_plays: pd.Dat
         return pd.DataFrame(), 0, 0, 0, 0
     df_rating = pd.merge(df_collection, df_game_infodb, how="left", on="objectid", suffixes=("", "_y"))
     df_rating = pd.DataFrame(df_rating.loc[df_rating["user_rating"] > 0])
+    if len(df_rating) == 0:
+        return pd.DataFrame(), 0, 0, 0, 0
 
     if not toggle_owned:
         df_rating = df_rating.query('own == 1')

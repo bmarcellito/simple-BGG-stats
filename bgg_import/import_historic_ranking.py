@@ -8,7 +8,7 @@ from my_logger import timeit, logger
 
 
 @timeit
-def get_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
+def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
     """
     Historic game ranking information cannot be accessed via API at BGG
     There are scrape files available for every day since 2016. Filename convention: YYYY-MM-DD.csv

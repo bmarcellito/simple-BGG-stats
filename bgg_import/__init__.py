@@ -1,9 +1,9 @@
-from time import sleep
 import streamlit as st
 
 from bgg_import.build_item_db import build_item_db_all
 from bgg_import.get_user_collection import user_collection
 from bgg_import.get_user_plays import user_plays
+from bgg_import.get_functions import get_game_infodb, get_play_no_db
 from my_logger import timeit
 
 
@@ -15,9 +15,7 @@ def import_user_data(username: str, refresh: int) -> None:
         user_plays.clear()
     st.session_state.my_collection = user_collection(username, refresh)
     st.session_state.my_plays = user_plays(username, refresh)
-    while ("global_game_infodb" not in st.session_state) or ("global_play_numdb" not in st.session_state):
-        # still loading - has to wait a bit
-        sleep(1)
-    st.session_state.global_game_infodb, st.session_state.global_play_numdb = build_item_db_all(
-        st.session_state.my_collection, st.session_state.my_plays, st.session_state.global_game_infodb,
-        st.session_state.global_play_numdb)
+    df_game_infodb = get_game_infodb()
+    df_play_no_db = get_play_no_db()
+    # TODO should collect return value???
+    build_item_db_all(st.session_state.my_collection, st.session_state.my_plays, df_game_infodb, df_play_no_db)

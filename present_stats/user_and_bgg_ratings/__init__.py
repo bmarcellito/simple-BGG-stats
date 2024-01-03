@@ -4,6 +4,7 @@ import statsmodels
 
 from present_stats.user_and_bgg_ratings.calculate_user_and_bgg_ratings import calculate_user_and_bgg_ratings
 from present_stats.add_description import add_description
+from bgg_import.get_functions import get_game_infodb
 
 
 def present_user_and_bgg_ratings() -> None:
@@ -14,8 +15,9 @@ def present_user_and_bgg_ratings() -> None:
         st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
 
     with st.spinner('Please wait, calculating statistics...'):
+        df_game_infodb = get_game_infodb()
         df_rating, min_rating, max_rating, min_bgg_rating, max_bgg_rating = calculate_user_and_bgg_ratings(
-            st.session_state.my_collection, st.session_state.my_plays, st.session_state.global_game_infodb,
+            st.session_state.my_collection, st.session_state.my_plays, df_game_infodb,
             st.session_state.toggle_owned, st.session_state.toggle_expansion)
 
     if len(df_rating) == 0:

@@ -7,7 +7,7 @@ from my_logger import timeit, logger
 
 
 @timeit
-def get_current_ranking(df_current_ranking: pd.DataFrame) -> pd.DataFrame:
+def import_current_ranking(df_current_ranking: pd.DataFrame) -> pd.DataFrame:
     """
     There is no API on BGG for downloading all games and their current rankings
     However they upload a .csv file daily that has all the information - as a part of official API

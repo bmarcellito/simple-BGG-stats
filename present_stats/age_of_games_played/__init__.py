@@ -4,6 +4,7 @@ from plotly import express as px
 from present_stats.add_description import add_description
 from present_stats.age_of_games_played.calculate_plays_by_publication_year import \
     calculate_age_of_games_played
+from bgg_import.get_functions import get_game_infodb
 
 
 def present_age_of_games_played() -> None:
@@ -14,7 +15,8 @@ def present_age_of_games_played() -> None:
         st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
 
     with st.spinner('Please wait, calculating statistics...'):
-        df_result = calculate_age_of_games_played(st.session_state.global_game_infodb,
+        df_game_infodb = get_game_infodb()
+        df_result = calculate_age_of_games_played(df_game_infodb,
                                                   st.session_state.my_collection,
                                                   st.session_state.my_plays,
                                                   st.session_state.toggle_owned,
@@ -57,4 +59,5 @@ def present_age_of_games_played() -> None:
                     ticksuffix='%'))
         st.plotly_chart(fig, theme="streamlit", use_container_width=True)
         add_description("plays_by_publication_year")
+        del df_game_infodb
     return None

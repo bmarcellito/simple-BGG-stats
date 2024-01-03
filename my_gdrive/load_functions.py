@@ -15,7 +15,10 @@ def load(file_id: str) -> io.BytesIO:
         downloader = MediaIoBaseDownload(file, request)
         done = False
         while done is False:
-            status, done = downloader.next_chunk()
+            try:
+                status, done = downloader.next_chunk()
+            except Exception as error:
+                print(error)
     except HttpError as error:
         logger.error(f'While loading file, an error occurred: {error}')
         file = None
