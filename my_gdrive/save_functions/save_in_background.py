@@ -7,7 +7,7 @@ from my_gdrive import authenticate
 from my_gdrive.search import search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions.token_mgmt import create_token, wait_for_my_turn, delete_token
-from my_logger import logger
+from my_logger import log_error
 
 
 def save_new_zip_file(service: googleapiclient.discovery.Resource, parent_folder: str,
@@ -39,7 +39,7 @@ def save(gdrive_folder: str, gdrive_filename: str, df: pd.DataFrame, concat: lis
     if not items:
         # create new file as there is no existing one
         file_id = save_new_zip_file(service=service, parent_folder=gdrive_folder, file_name=gdrive_filename, df=df)
-        logger.info(f'File saved: {gdrive_filename}')
+        # log_info(f'File saved: {gdrive_filename}')
         delete_token(service, my_token)
         return file_id
     # overwrite existing file
@@ -53,13 +53,13 @@ def save(gdrive_folder: str, gdrive_filename: str, df: pd.DataFrame, concat: lis
     try:
         service.files().delete(fileId=existing_file_id).execute()
     except Exception as e:
-        logger.error(f'Cannot delete {gdrive_filename}. {e}')
+        log_error(f'save - Cannot delete existing file: {gdrive_filename}. {e}')
     try:
         file_id = save_new_zip_file(service=service, parent_folder=gdrive_folder, file_name=gdrive_filename,
                                     df=df_merged)
     except Exception as e:
-        logger.error(f'Cannot save {gdrive_filename}. {e}')
+        log_error(f'save - Cannot save new file: {gdrive_filename}. {e}')
         file_id = ""
-    logger.info(f'File overwritten: {gdrive_filename}')
+    # log_info(f'File overwritten: {gdrive_filename}')
     delete_token(service, my_token)
     return file_id

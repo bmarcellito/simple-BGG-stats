@@ -7,7 +7,7 @@ from googleapiclient.http import MediaIoBaseUpload
 
 from my_gdrive import authenticate
 from my_gdrive.search import search
-from my_logger import logger
+from my_logger import log_info, log_error
 from my_gdrive.constants import get_name
 
 
@@ -41,9 +41,9 @@ def maintain_tokens():
                     if just_now - item_time > timedelta(seconds=600):
                         try:
                             service.files().delete(fileId=item["id"]).execute()
-                            logger.info(f'Old token deleted: {item["name"]}')
+                            log_info(f'Old token deleted: {item["name"]}')
                         except Exception as e:
-                            logger.error(f'Failed old token deleted: {item["name"]}. {e}')
+                            log_error(f'maintain_tokens - Failed old token deleted: {item["name"]}. {e}')
             sleep(5)
     except KeyboardInterrupt:
         print("stopped!")
@@ -58,7 +58,7 @@ def create_token(service: googleapiclient.discovery.Resource) -> str:
             token_id = save_new_csv_file(service, parent_folder=session_folder_id, file_name=token, df=df_session)
             break
         except Exception as e:
-            logger.error(f'Cannot save {token}. {e}')
+            log_error(f'create_token - Cannot save {token}. {e}')
             pass
     return token_id
 
@@ -69,7 +69,7 @@ def wait_for_my_turn(token_id: str) -> int:
     while 0 == 0:
         items = search(query=f'"folder_session" in parents')
         if not items:
-            logger.error(f'Token {token_id} disappeared!')
+            log_error(f'wait_for_my_turn - Token {token_id} disappeared!')
             break
         first_token_id = items[0]["id"]
         first_token_time = items[0]["modifiedTime"]
@@ -87,4 +87,4 @@ def delete_token(service: googleapiclient.discovery.Resource, token_id: str) -> 
     try:
         service.files().delete(fileId=token_id).execute()
     except Exception as e:
-        logger.error(f'{token_id} - Failed token deleted. {e}')
+        log_error(f'delete_token - Could not delete {token_id} - {e}')

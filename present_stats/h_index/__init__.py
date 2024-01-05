@@ -3,14 +3,14 @@ import streamlit as st
 from present_stats.add_description import add_description
 from present_stats.h_index.calculate_h_index import calculate_h_index
 from main_screen_functions.presentation_hack import clear_ph_element
-from bgg_import.get_functions import get_game_infodb
+from main_screen_functions.bgg_data_class import BggData
 
 
 def different_h_stat_selected(h_index_container) -> None:
-    clear_ph_element(h_index_container)
+    clear_ph_element([h_index_container])
 
 
-def present_h_index() -> None:
+def present_h_index(my_bgg_data: BggData) -> None:
     h_index_selectbox = st.empty()
     h_index_toggle = st.empty()
     h_index_container = st.empty()
@@ -21,8 +21,7 @@ def present_h_index() -> None:
     st.session_state.toggle_expansion = h_index_toggle.toggle('Include boardgame expansions as well')
 
     with st.spinner('Please wait, calculating statistics...'):
-        df_game_infodb = get_game_infodb()
-        result = calculate_h_index(st.session_state.my_plays, df_game_infodb,
+        result = calculate_h_index(my_bgg_data.user_plays, my_bgg_data.game_info_db,
                                    st.session_state.toggle_expansion, st.session_state.sel_h_index)
 
     if len(result) == 0:
@@ -39,5 +38,4 @@ def present_h_index() -> None:
                     with st.expander(f'For year {result[index][2]} the H-index is {result[index][0]}.'):
                         st.table(result[index][1])
     add_description("h-index")
-    del df_game_infodb
     return None

@@ -7,10 +7,10 @@ from main_screen_functions.presentation_hack import clear_ph_element
 
 def contact_form_button(main_screen) -> None:
     def contact_button_pushed(el_main_screen) -> None:
-        clear_ph_element(el_main_screen)
         st.session_state.previous_user_state = st.session_state.user_state
         st.session_state.user_state = "Contact_form"
         st.session_state.contact_form_state = "Init"
+        clear_ph_element([el_main_screen])
 
     st.button(label="Send feedback!", on_click=contact_button_pushed, args=[main_screen])
 
@@ -18,7 +18,7 @@ def contact_form_button(main_screen) -> None:
 def present_contact_sent(main_screen) -> None:
     def thx_button_pushed(el_main_screen) -> None:
         st.session_state.user_state = st.session_state.previous_user_state
-        clear_ph_element(el_main_screen)
+        clear_ph_element([el_main_screen])
 
     st.title("Contact form sent")
     st.write('Thank you!')
@@ -32,12 +32,13 @@ def present_contact_form(main_screen) -> None:
             df = pd.DataFrame(data={"name": name, "user_email": email, "feedback": txt}, index=[0])
             save_background(parent_folder="folder_processed", filename="feedbacks", df=df, concat=["feedback"])
             st.session_state.contact_form_state = "Sent"
+        del df
         ph_save.empty()
-        clear_ph_element(el_main_screen)
+        clear_ph_element([el_main_screen])
 
     def later_button_pushed(el_main_screen) -> None:
         st.session_state.user_state = st.session_state.previous_user_state
-        clear_ph_element(el_main_screen)
+        clear_ph_element([el_main_screen])
 
     st.title("Contact form")
     name = st.text_input('Enter your name (optional)')

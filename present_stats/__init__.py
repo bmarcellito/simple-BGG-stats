@@ -1,5 +1,6 @@
 import streamlit as st
 
+from main_screen_functions.bgg_data_class import BggData
 from present_stats.basics import present_basics
 from present_stats.collection import present_collection
 from present_stats.h_index import present_h_index
@@ -18,17 +19,17 @@ from main_screen_functions.presentation_hack import clear_ph_element
 def set_state(selectbox_name: str) -> None:
     if selectbox_name not in st.session_state:
         st.session_state[selectbox_name] = 'Basic statistics'
-    if st.session_state.user_state == "User_imported_now":
-        if "previous_user" in st.session_state:
-            previous_name = f'stat_key_{st.session_state.previous_user}'
-            del st.session_state[previous_name]
-        st.session_state.user_state = "User_imported"
+    if "previous_user" not in st.session_state:
+        st.session_state.previous_user = st.session_state.bgg_username
+    if st.session_state.previous_user != st.session_state.bgg_username:
+        previous_name = f'stat_key_{st.session_state.previous_user}'
+        del st.session_state[previous_name]
     st.session_state.previous_user = st.session_state.bgg_username
 
 
-def present_stat_selector() -> None:
+def present_stat_selector(my_bgg_data: BggData) -> None:
     def different_stat_selected() -> None:
-        clear_ph_element(ph_stat)
+        clear_ph_element([ph_stat])
 
     select_options = ['Basic statistics',
                       'User collection',
@@ -54,15 +55,15 @@ def present_stat_selector() -> None:
 
     with ph_stat.container():
         match st.session_state[selectbox_name]:
-            case "Basic statistics": present_basics()
-            case "User collection": present_collection()
-            case "Favourite designers": present_favourite_designers()
-            case "H-index": present_h_index()
-            case "Games tried grouped by year of publication": present_games_by_publication_year()
-            case "Age of games played": present_age_of_games_played()
-            case "Weight distribution of user's games and plays": present_games_by_weight()
-            case "Play statistics by year": present_plays_by_years()
-            case "Games known from BGG top list": present_bgg_toplist()
-            case "Stat around game weight": present_rankings_and_weights()
-            case "Stat around ratings": present_user_and_bgg_ratings()
+            case "Basic statistics": present_basics(my_bgg_data)
+            case "User collection": present_collection(my_bgg_data)
+            case "Favourite designers": present_favourite_designers(my_bgg_data)
+            case "H-index": present_h_index(my_bgg_data)
+            case "Games tried grouped by year of publication": present_games_by_publication_year(my_bgg_data)
+            case "Age of games played": present_age_of_games_played(my_bgg_data)
+            case "Weight distribution of user's games and plays": present_games_by_weight(my_bgg_data)
+            case "Play statistics by year": present_plays_by_years(my_bgg_data)
+            case "Games known from BGG top list": present_bgg_toplist(my_bgg_data)
+            case "Stat around game weight": present_rankings_and_weights(my_bgg_data)
+            case "Stat around ratings": present_user_and_bgg_ratings(my_bgg_data)
     return None

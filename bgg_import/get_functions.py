@@ -4,6 +4,8 @@ import streamlit as st
 from my_gdrive.constants import get_name
 from my_gdrive.load_functions import load_zip
 from my_gdrive.search import search
+from bgg_import.get_user_collection import user_collection
+from bgg_import.get_user_plays import user_plays
 
 
 @st.cache_resource(show_spinner=False, ttl=24*3600)
@@ -69,6 +71,34 @@ def get_historic_rankings() -> pd.DataFrame:
                 df.query(expr="best_rank < 2000", inplace=True)
                 df.drop_duplicates(subset=["objectid"], keep="last", ignore_index=True, inplace=True)
     return df
+
+
+class Collection:
+    def __init__(self, df: pd.DataFrame, import_text):
+        self.data = df
+        self.import_text = import_text
+
+
+@st.cache_resource(show_spinner=False, ttl=3600)
+def get_user_collection(username) -> Collection:
+    refresh_user_data = st.secrets["refresh_user_data"]
+    df, import_text = user_collection(username, refresh_user_data)
+    imported_user = Collection(df, import_text)
+    return imported_user
+
+
+class Plays:
+    def __init__(self, df: pd.DataFrame, import_text):
+        self.data = df
+        self.import_text = import_text
+
+
+@st.cache_resource(show_spinner=False, ttl=3600)
+def get_user_plays(username) -> Plays:
+    refresh_user_data = st.secrets["refresh_user_data"]
+    df, import_text = user_plays(username, refresh_user_data)
+    imported_plays = Plays(df, import_text)
+    return imported_plays
 
 
 @st.cache_resource(show_spinner=False, ttl=24*3600)

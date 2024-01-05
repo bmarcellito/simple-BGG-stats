@@ -8,7 +8,6 @@ from my_gdrive.create_folder import create_folder
 from my_gdrive.save_functions import save_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
 from bgg_import.get_functions import get_username_cache
-from my_logger import logger
 
 
 def is_user_in_cache(username, df_username_cache) -> bool:
@@ -107,7 +106,7 @@ def create_user_folder(username: str) -> None:
     items = search(query=q)
     if not items:
         create_folder(parent_folder="folder_user", folder_name=username)
-        logger.info(f'Folder created: {username}')
+        # log_info(f'create_user_folder - Folder created: {username}')
 
 
 def check_user(username: str) -> str:

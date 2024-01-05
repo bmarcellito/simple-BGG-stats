@@ -3,7 +3,7 @@ import streamlit as st
 
 from bgg_import.build_item_db.get_items.get_one_item_info import get_one_item_info
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
-import my_logger
+from my_logger import log_error
 
 
 def get_100_items(games_to_import_list: list, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
@@ -32,8 +32,8 @@ def get_100_items(games_to_import_list: list, global_game_infodb: pd.DataFrame, 
                 try:
                     df_game_info.loc[len(df_game_info)] = new_item_row
                 except ValueError:
-                    my_logger.logger.error(f'item_id: {i}. It has different attributes, cannot add to table! Columns: '
-                                           f'{df_game_info.columns.values}')
+                    log_error(f'get_100_items - item_id: {i}. It has different attributes, cannot add to table! '
+                              f'Columns: {df_game_info.columns.values}')
                     exit(0)
         if len(new_playnum_rows) > 0:
             if df_playnumdb.empty:

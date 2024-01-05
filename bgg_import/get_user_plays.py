@@ -7,11 +7,10 @@ from my_gdrive.search import search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
-from my_logger import logger
+from my_logger import log_error
 
 
-@st.cache_data(show_spinner=False, max_entries=5, ttl=3600)
-def user_plays(username: str, refresh: int) -> pd.DataFrame:
+def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
     """
     Importing all play instances uf a specific user from BGG website
     Has to import for every user separately, so used every time a new user is chosen
@@ -19,15 +18,14 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    st.caption(f'STEP 2/3: Importing plays of {username}...')
     df = pd.DataFrame()
 
     q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '
          f'and name contains "{username}"')
     items = search(query=q)
     if not items:
-        logger.error(f'No folder for user {username}. Cannot save collection.')
-        return pd.DataFrame()
+        log_error(f'user_plays - No folder for user {username}. Cannot save collection.')
+        return pd.DataFrame(), "Missing user folder"
     user_folder_id = items[0]["id"]
 
     q = f'"{user_folder_id}" in parents and name contains "user_plays"'
@@ -39,9 +37,9 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
-            st.caption(f'Cached data loaded. Number of plays: {len(df)}')
-            logger.info(f'Plays of {username} loaded. It is {how_fresh} old.')
-            return df
+            feedback = f'Cached data loaded. It is {how_fresh} old. Number of plays: {len(df)}'
+            # log_info(f'Plays of {username} loaded. It is {how_fresh} old.')
+            return df, feedback
 
     # read the first page of play info from BGG
     result = import_xml_from_bgg(f'plays?username={username}')
@@ -52,9 +50,9 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
     i = result.find("total=")
     total = int("".join(filter(str.isdigit, result[i + 7:i + 12])))
     if total == 0:
-        st.caption(f'User {username} haven\'t recorded any plays yet.')
-        logger.info(f'Importing plays: user {username} has not recorded any plays yet.')
-        return df
+        feedback = f'User {username} haven\'t recorded any plays yet.'
+        # log_info(f'Importing plays: user {username} has not recorded any plays yet.')
+        return df, feedback
     page_no, rest = divmod(total, 100)
     if rest > 0:
         page_no += 1
@@ -100,6 +98,6 @@ def user_plays(username: str, refresh: int) -> pd.DataFrame:
     step += 1
     my_bar.progress(step * 100 // step_all, text=progress_text)
     my_bar.empty()
-    st.caption(f'Importing finished. Number of plays: {len(df_play)}')
-    logger.info(f'Plays of {username} imported. Number of plays: {len(df_play)}')
-    return df_play
+    feedback = f'Importing finished. Number of plays: {len(df_play)}'
+    # log_info(f'Plays of {username} imported. Number of plays: {len(df_play)}')
+    return df_play, feedback

@@ -12,12 +12,13 @@ def timeit(func):
         result = func(*args, **kwargs)
         te = time.time()
         log_text = f'*** Function: {func.__name__}, execution time: {round((te - ts) * 1000, 1)}ms'
-        logger.info(log_text)
+        log_info(log_text)
         return result
     return timed
 
 
-def getlogger(name):
+@st.cache_resource
+def get_logger(name):
     class ContextFilter(logging.Filter):
         hostname = socket.gethostname()
 
@@ -33,13 +34,22 @@ def getlogger(name):
     syslog.setFormatter(formatter)
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    get_logger = logging.getLogger(name)
-    get_logger.addHandler(syslog)
-    get_logger.propagate = False
+    my_logger = logging.getLogger(name)
+    my_logger.addHandler(syslog)
+    my_logger.propagate = False
+    my_logger.setLevel(logging.INFO)
+    return my_logger
+
+
+def log_info(message: str) -> None:
+    logger = get_logger(__name__)
+    # logger.propagate = False
     # logger.setLevel(logging.INFO)
-    return get_logger
+    logger.info(message)
 
 
-logger = getlogger(__name__)
-logger.propagate = False
-logger.setLevel(logging.INFO)
+def log_error(message: str) -> None:
+    logger = get_logger(__name__)
+    # logger.propagate = False
+    # logger.setLevel(logging.INFO)
+    logger.error(message)

@@ -2,7 +2,7 @@ import time
 import requests
 import streamlit as st
 
-from my_logger import logger
+from my_logger import log_error
 
 
 def import_xml_from_bgg(link: str) -> str:
@@ -14,16 +14,16 @@ def import_xml_from_bgg(link: str) -> str:
         try:
             response = requests.get(f'https://boardgamegeek.com/xmlapi2/{link}', timeout=10)
         except requests.exceptions.HTTPError as err:
-            logger.error(f'Http error: {err}. Link: {link}')
+            log_error(f'import_xml_from_bgg - Http error: {err}. Link: {link}')
             continue
         except requests.exceptions.ConnectionError as err:
-            logger.error(f'Error connecting: {err}. Link: {link}')
+            log_error(f'import_xml_from_bgg - Error connecting: {err}. Link: {link}')
             continue
         except requests.exceptions.Timeout as err:
-            logger.error(f'Timeout error: {err}. Link: {link}')
+            log_error(f'import_xml_from_bgg - Timeout error: {err}. Link: {link}')
             continue
         except requests.exceptions.RequestException as err:
-            logger.error(f'Other request error: {err}. Link: {link}')
+            log_error(f'import_xml_from_bgg - Other request error: {err}. Link: {link}')
             continue
 
         match response.status_code:

@@ -4,7 +4,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
 from my_gdrive import authenticate
-from my_logger import logger
+from my_logger import log_error
 
 
 def load(file_id: str) -> io.BytesIO:
@@ -18,9 +18,9 @@ def load(file_id: str) -> io.BytesIO:
             try:
                 status, done = downloader.next_chunk()
             except Exception as error:
-                print(error)
+                log_error(f'load - While loading file, an error occurred: {error}')
     except HttpError as error:
-        logger.error(f'While loading file, an error occurred: {error}')
+        log_error(f'load - While loading file, an error occurred: {error}')
         file = None
     return file
 

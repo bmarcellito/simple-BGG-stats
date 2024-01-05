@@ -3,10 +3,9 @@ import pandas as pd
 from my_gdrive.search import search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
-from my_logger import timeit, logger
+from my_logger import log_info, log_error
 
 
-@timeit
 def import_current_ranking(df_current_ranking: pd.DataFrame) -> pd.DataFrame:
     """
     There is no API on BGG for downloading all games and their current rankings
@@ -34,7 +33,7 @@ def import_current_ranking(df_current_ranking: pd.DataFrame) -> pd.DataFrame:
         process_last_modified = items_processed[0]["modifiedTime"]
 
     if (not data_source) and (not data_processed):
-        logger.error(f'Current ranking info: No original & no processed data!')
+        log_error(f'import_current_ranking - Current ranking info: No original & no processed data!')
         return pd.DataFrame()
 
     if (not data_source) and data_processed:
@@ -52,5 +51,5 @@ def import_current_ranking(df_current_ranking: pd.DataFrame) -> pd.DataFrame:
     df.rename(columns={"id": "objectid"}, inplace=True)
 
     overwrite_background(parent_folder="folder_processed", filename="current_ranking_processed", df=df)
-    logger.info(f'Found new current ranking data. It is imported. Number of items: {len(df)}')
+    log_info(f'Found new current ranking data. It is imported. Number of items: {len(df)}')
     return df

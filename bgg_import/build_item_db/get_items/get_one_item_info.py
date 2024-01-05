@@ -2,7 +2,7 @@ from io import StringIO
 import pandas as pd
 
 from bgg_import.build_item_db.get_items.get_player_number import import_player_number
-from my_logger import logger
+from my_logger import log_error
 
 
 def get_one_item_info(i, xml_text: str) -> (pd.DataFrame, pd.DataFrame, bool):
@@ -11,10 +11,10 @@ def get_one_item_info(i, xml_text: str) -> (pd.DataFrame, pd.DataFrame, bool):
     try:
         df_item = pd.read_xml(StringIO(result), encoding="utf-8")
     except ValueError:
-        logger.error(f'Objectid: {i}. User has related record, however BGG miss this item!')
+        log_error(f'get_one_item_info - Objectid: {i}. User has related record, however BGG miss this item!')
         return pd.DataFrame(), pd.DataFrame(), False
     except Exception as e:
-        logger.error(f'Objectid: {i}. XML reading error in "get_one_item_info" function. {e}')
+        log_error(f'get_one_item_info - Objectid: {i}. XML reading error in "get_one_item_info" function. {e}')
         return pd.DataFrame(), pd.DataFrame(), True
     row_type = df_item.iloc[0, 0]
     if row_type not in ("boardgame", "boardgameexpansion"):
@@ -33,21 +33,21 @@ def get_one_item_info(i, xml_text: str) -> (pd.DataFrame, pd.DataFrame, bool):
         df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//yearpublished")
         row_published = df_item.iloc[0, 0]
     except ValueError:
-        logger.error(f'Objectid: {i} has no yearpublished info')
+        log_error(f'get_one_item_info - Objectid: {i} has no yearpublished info')
         row_published = 0
 
     try:
         df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//minplayers")
         row_min_player = df_item.iloc[0, 0]
     except ValueError:
-        logger.error(f'Objectid: {i} has no minplayers info')
+        log_error(f'get_one_item_info - Objectid: {i} has no minplayers info')
         row_min_player = 0
 
     try:
         df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//maxplayers")
         row_max_player = df_item.iloc[0, 0]
     except ValueError:
-        logger.error(f'Objectid: {i} has no maxplayers info')
+        log_error(f'get_one_item_info - Objectid: {i} has no maxplayers info')
         row_max_player = 0
 
     df_item = pd.read_xml(StringIO(result), encoding="utf-8", xpath=".//name")

@@ -4,10 +4,10 @@ from plotly import express as px
 from present_stats.add_description import add_description
 from present_stats.age_of_games_played.calculate_plays_by_publication_year import \
     calculate_age_of_games_played
-from bgg_import.get_functions import get_game_infodb
+from main_screen_functions.bgg_data_class import BggData
 
 
-def present_age_of_games_played() -> None:
+def present_age_of_games_played(my_bgg_data: BggData) -> None:
     col1, col2 = st.columns(2)
     with col1:
         st.toggle(label="Just owned games / all known games", key="toggle_owned")
@@ -15,12 +15,9 @@ def present_age_of_games_played() -> None:
         st.toggle(label='Include boardgame expansions as well', key="toggle_expansion")
 
     with st.spinner('Please wait, calculating statistics...'):
-        df_game_infodb = get_game_infodb()
-        df_result = calculate_age_of_games_played(df_game_infodb,
-                                                  st.session_state.my_collection,
-                                                  st.session_state.my_plays,
-                                                  st.session_state.toggle_owned,
-                                                  st.session_state.toggle_expansion)
+        df_result = calculate_age_of_games_played(my_bgg_data.game_info_db, my_bgg_data.user_collection,
+                                                  my_bgg_data.user_plays,
+                                                  st.session_state.toggle_owned, st.session_state.toggle_expansion)
     if len(df_result) == 0:
         st.write("No data to show :(")
     else:
@@ -59,5 +56,4 @@ def present_age_of_games_played() -> None:
                     ticksuffix='%'))
         st.plotly_chart(fig, theme="streamlit", use_container_width=True)
         add_description("plays_by_publication_year")
-        del df_game_infodb
     return None

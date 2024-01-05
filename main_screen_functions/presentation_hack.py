@@ -1,12 +1,13 @@
 from time import sleep
 import streamlit as st
+import gc
 
 
-def clear_ph_element(element) -> None:
-    element.empty()
-    sleep(0.1)
-    # element.empty()
-    # sleep(0.1)
+def clear_ph_element(element_list) -> None:
+    for element in element_list:
+        element.empty()
+        sleep(0.1)
+    gc.collect()
 
 
 def presentation_hack() -> None:
