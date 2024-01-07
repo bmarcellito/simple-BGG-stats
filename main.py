@@ -42,6 +42,10 @@ if __name__ == "__main__":
         st.session_state.user_state = "No_user_selected"
     main()
 
+    # TODO token error
+    # TODO user folder error
+    # TODO return state, not just data, like file reading error, HTTP error -> new starting page on the right
+    # TODO file reading, web reading no endless loop, but give up sometimes
     # TODO check for new data
     # TODO remove not used columns to save memory
     # TODO historic ranks: best rank counts objectID as well -> error
@@ -54,7 +58,9 @@ if __name__ == "__main__":
     # TODO import could create some merge and delete basic info
     # TODO inform about the age of cached data
     # TODO some stat calculation can be separated into multiple functions
+    # TODO cache writing semaphore
     # TODO google load timeout handle
+    # TODO change token mgmt - separate token for each file
     # TODO new game appears in a new historic file - what will happen?
     # TODO schema for BGG TOP list
     # TODO stat for every year: average publication year / complexity of games tried

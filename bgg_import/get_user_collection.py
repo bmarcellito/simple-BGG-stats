@@ -50,7 +50,8 @@ def user_collection(username: str, refresh: int) -> (pd.DataFrame, str):
             return df, feedback
 
     result = import_xml_from_bgg(f'collection?username={username}&stats=1')
-
+    if result == "":
+        return pd.DataFrame, "BGG site reading error"
     # Game name and general game information
     try:
         df = pd.read_xml(StringIO(result))

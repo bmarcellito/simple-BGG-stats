@@ -2,6 +2,7 @@ import googleapiclient.discovery
 import streamlit as st
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from my_logger import log_error
 
 
 def authenticate() -> googleapiclient.discovery.Resource:
@@ -24,6 +25,12 @@ def authenticate() -> googleapiclient.discovery.Resource:
                                 "stat-service-acc.iam.gserviceaccount.com",
         "universe_domain": "googleapis.com"
     }
-    creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
-    service = build('drive', 'v3', credentials=creds, cache_discovery=False)
+    try:
+        creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
+    except Exception as error:
+        log_error(f'authenticate - creds - {error}')
+    try:
+        service = build('drive', 'v3', credentials=creds, cache_discovery=False)
+    except Exception as error:
+        log_error(f'authenticate - build - {error}')
     return service

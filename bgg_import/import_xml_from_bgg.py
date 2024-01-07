@@ -36,6 +36,8 @@ def import_xml_from_bgg(link: str) -> str:
                     ph_xml_import.caption(f'Request {try_counter}: BGG is not ready yet')
             case 429:
                 ph_xml_import.caption(f'Request {try_counter}: BGG is busy to answer...')
+            case 503:
+                ph_xml_import.caption(f'Request {try_counter}: BGG is unavailable...')
             case _:
                 ph_xml_import.caption(response.status_code)
         # BGG cannot handle huge amount of requests. Let's give it some rest!
@@ -46,4 +48,6 @@ def import_xml_from_bgg(link: str) -> str:
         time.sleep(1)
         my_bar.empty()
         ph_xml_import.empty()
+        if try_counter > 20:
+            return ""
     return response.content.decode(encoding="utf-8")

@@ -82,5 +82,5 @@ def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFr
         df_historical.at[i, "best_rank"] = min(row_nonzero)
 
     overwrite_background(parent_folder="folder_processed", filename="historical_ranking_processed", df=df_historical)
-    log_info(f'Found new hist historical rankings info. Imported succesfully.')
+    log_info(f'Found new hist historical rankings info. Imported successfully.')
     return df_historical

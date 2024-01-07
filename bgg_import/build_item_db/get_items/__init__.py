@@ -10,6 +10,8 @@ def get_100_items(games_to_import_list: list, global_game_infodb: pd.DataFrame, 
         -> (pd.DataFrame, pd.DataFrame, bool):
     list_of_games = ",".join(str(x) for x in games_to_import_list)
     result = import_xml_from_bgg(f'thing?id={list_of_games}&stats=1')
+    if result == "":
+        return pd.DataFrame, pd.DataFrame, True
     xml_list = result.split("</item>")
     for i in range(1, len(xml_list)):
         xml_list[i] = '<?xml version="1.0" encoding="utf-8"?><items>' + xml_list[i] + "</item></items>"

@@ -43,6 +43,8 @@ def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
 
     # read the first page of play info from BGG
     result = import_xml_from_bgg(f'plays?username={username}')
+    if result == "":
+        return pd.DataFrame, "BGG website reading error"
     """ BGG returns 100 plays per page
     The top of the XML page stores the number of plays in total
     Here we find this number so we know how many pages to read
@@ -74,6 +76,8 @@ def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
 
     while page_no > 1:
         result = import_xml_from_bgg(f'plays?username={username}&page={page_no}')
+        if result == "":
+            return pd.DataFrame, "BGG website reading error"
         df_play_next_page = pd.read_xml(StringIO(result))
         df_play = pd.concat([df_play, df_play_next_page])
         df_game_next_page = pd.read_xml(StringIO(result), xpath=".//item")

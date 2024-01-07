@@ -2,7 +2,7 @@ from threading import Thread
 from streamlit.runtime.scriptrunner import add_script_run_ctx
 
 from bgg_import.get_functions import *
-from my_gdrive.save_functions.token_mgmt import maintain_tokens
+# from my_gdrive.save_functions.token_mgmt import maintain_tokens
 
 
 def init_load() -> None:
@@ -31,8 +31,8 @@ def init_load() -> None:
     add_script_run_ctx(thread_user_cache)
     thread_user_cache.start()
 
-    thread_maintain_tokens = Thread(target=maintain_tokens)
-    thread_maintain_tokens.name = "maintain_tokens"
-    add_script_run_ctx(thread_maintain_tokens)
-    thread_maintain_tokens.start()
+    # thread_maintain_tokens = Thread(target=maintain_tokens)
+    # thread_maintain_tokens.name = "maintain_tokens"
+    # add_script_run_ctx(thread_maintain_tokens)
+    # thread_maintain_tokens.start()
     return None

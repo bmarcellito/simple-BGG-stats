@@ -23,12 +23,17 @@ def is_user_in_cache(username, df_username_cache) -> bool:
 
 def is_user_on_bgg(username: str) -> (bool, str):
     # this user has not been checked in the last month
+    ph_is_user = st.empty()
+    ph_is_user.caption(f'Checking user on BGG website...')
     result = import_xml_from_bgg(f'user?name={username}')
+    if result == "":
+        return False, ""
     start = result.find("id=") + 4
     end = result.find("\"", start)
     if end == start:
-        st.caption(f'No user found on bgg with this username: {username}')
+        ph_is_user.caption(f'No user found on BGG with this username: {username}')
         return False, ""
+    ph_is_user.caption("User found on BGG!")
     return True, result
 
 
@@ -125,5 +130,4 @@ def check_user(username: str) -> str:
     save_user_info(new_cache_row, df_username_cache)
     create_user_folder(username)
 
-    st.caption("User found on BGG!")
     return "User_found"

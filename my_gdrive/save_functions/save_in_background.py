@@ -32,7 +32,7 @@ def save_new_zip_file(service: googleapiclient.discovery.Resource, parent_folder
 def save(gdrive_folder: str, gdrive_filename: str, df: pd.DataFrame, concat: list) -> str:
     service = authenticate()
     my_token = create_token(service)
-    wait_for_my_turn(my_token)
+    wait_for_my_turn(service, my_token)
     # now it is possible to change files
     q = f'"{gdrive_folder}" in parents and name contains "{gdrive_filename}"'
     items = search(query=q)
