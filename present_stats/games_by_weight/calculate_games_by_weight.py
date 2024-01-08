@@ -1,4 +1,5 @@
 import pandas as pd
+from my_logger import log_error
 
 
 def calculate_games_by_weight(df_game_info: pd.DataFrame, df_collection: pd.DataFrame, df_plays: pd.DataFrame,
@@ -36,8 +37,8 @@ def calculate_games_by_weight(df_game_info: pd.DataFrame, df_collection: pd.Data
             weight_list.loc[i, "Number of plays"] = df_grouped_plays.loc[object_id, "quantity"]
         except KeyError:
             weight_list.loc[i, "Number of plays"] = 0
-        except ValueError:
-            print("error")
+        except ValueError as err:
+            log_error(f'calculate_games_by_weight - {err}')
 
     bucket = 1
     bucket_size = 0.5

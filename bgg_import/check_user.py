@@ -10,6 +10,12 @@ from bgg_import.import_xml_from_bgg import import_xml_from_bgg
 from bgg_import.get_functions import get_username_cache
 
 
+class BggUserRequest:
+    def __init__(self, status: str, response: str):
+        self.status = status
+        self.response = response
+
+
 def is_user_in_cache(username, df_username_cache) -> bool:
     # check whether we have successfully found this username in the last month
     if not df_username_cache.empty:
@@ -21,20 +27,20 @@ def is_user_in_cache(username, df_username_cache) -> bool:
     return False
 
 
-def is_user_on_bgg(username: str) -> (bool, str):
+def is_user_on_bgg(username: str) -> (BggUserRequest, str):
     # this user has not been checked in the last month
     ph_is_user = st.empty()
     ph_is_user.caption(f'Checking user on BGG website...')
-    result = import_xml_from_bgg(f'user?name={username}')
-    if result == "":
-        return False, ""
-    start = result.find("id=") + 4
-    end = result.find("\"", start)
+    answer = import_xml_from_bgg(f'user?name={username}')
+    if not answer.status:
+        return BggUserRequest("Error", answer.response), ""
+    start = answer.data.find("id=") + 4
+    end = answer.data.find("\"", start)
     if end == start:
         ph_is_user.caption(f'No user found on BGG with this username: {username}')
-        return False, ""
+        return BggUserRequest("Not_found", ""), ""
     ph_is_user.caption("User found on BGG!")
-    return True, result
+    return BggUserRequest("Found", ""), answer.data
 
 
 def import_user_info(username: str, result: str) -> pd.DataFrame:
@@ -111,23 +117,24 @@ def create_user_folder(username: str) -> None:
     items = search(query=q)
     if not items:
         create_folder(parent_folder="folder_user", folder_name=username)
-        # log_info(f'create_user_folder - Folder created: {username}')
 
 
-def check_user(username: str) -> str:
+def check_user(username: str) -> BggUserRequest:
     if username == "":
-        return "No_user_selected"
-    df_username_cache = get_username_cache()
+        return BggUserRequest("No_user_selected", "No username was entered")
 
+    df_username_cache = get_username_cache()
     if is_user_in_cache(username, df_username_cache):
         st.caption("User found in cache!")
-        return "User_found"
+        return BggUserRequest("User_found", "Username found in cache")
 
-    found, result = is_user_on_bgg(username)
-    if not found:
-        return "No_valid_user"
-    new_cache_row = import_user_info(username, result)
+    answer, data = is_user_on_bgg(username)
+    if answer == "Not_found":
+        return BggUserRequest("No_valid_user", "Username was not found on BGG")
+    if answer == "Error":
+        return BggUserRequest("Import_error", answer.response)
+
+    new_cache_row = import_user_info(username, data)
     save_user_info(new_cache_row, df_username_cache)
     create_user_folder(username)
-
-    return "User_found"
+    return BggUserRequest("User_found", "Username found on Bgg")

@@ -9,13 +9,13 @@ from my_logger import log_error
 def get_100_items(games_to_import_list: list, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
         -> (pd.DataFrame, pd.DataFrame, bool):
     list_of_games = ",".join(str(x) for x in games_to_import_list)
-    result = import_xml_from_bgg(f'thing?id={list_of_games}&stats=1')
-    if result == "":
+    answer = import_xml_from_bgg(f'thing?id={list_of_games}&stats=1')
+    if not answer.status:
         return pd.DataFrame, pd.DataFrame, True
-    xml_list = result.split("</item>")
+
+    xml_list = answer.data.split("</item>")
     for i in range(1, len(xml_list)):
         xml_list[i] = '<?xml version="1.0" encoding="utf-8"?><items>' + xml_list[i] + "</item></items>"
-        # <items termsofuse="https://boardgamegeek.com/xmlapi/termsofuse">
     xml_list[0] = xml_list[0] + "</item></items>"
 
     df_game_info = pd.DataFrame()

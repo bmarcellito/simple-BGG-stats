@@ -34,13 +34,13 @@ def import_user_data(username: str, refresh: int) -> BggData:
     df_game_infodb = get_game_infodb()
     df_play_no_db = get_play_no_db()
     # TODO should collect return value???
-    df_game_infodb, df_play_no_db = build_item_db_all(my_user_collection.data, my_plays.data, df_game_infodb,
-                                                      df_play_no_db)
+    df_game_infodb.data, df_play_no_db.data = build_item_db_all(my_user_collection.data, my_plays.data,
+                                                                df_game_infodb.data, df_play_no_db.data)
     my_bgg_data = BggData()
     my_bgg_data.user_collection = my_user_collection.data
     my_bgg_data.user_plays = my_plays.data
-    my_bgg_data.game_info_db = df_game_infodb
-    my_bgg_data.play_no_db = df_play_no_db
+    my_bgg_data.game_info_db = df_game_infodb.data
+    my_bgg_data.play_no_db = df_play_no_db.data
     del my_user_collection
     del my_plays
     del df_game_infodb

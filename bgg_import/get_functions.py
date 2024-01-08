@@ -8,8 +8,14 @@ from bgg_import.get_user_collection import user_collection
 from bgg_import.get_user_plays import user_plays
 
 
+class GameInfo:
+    def __init__(self, df: pd.DataFrame, import_text):
+        self.data = df
+        self.import_text = import_text
+
+
 @st.cache_resource(show_spinner=False, ttl=24*3600)
-def get_game_infodb() -> pd.DataFrame:
+def get_game_infodb() -> GameInfo:
     df = pd.DataFrame()
     filename = get_name("game_infodb")
     q = f'"folder_processed" in parents and name contains "{filename}"'
@@ -21,11 +27,17 @@ def get_game_infodb() -> pd.DataFrame:
             if filename in item["name"]:
                 df = load_zip(item["id"])
                 df.drop_duplicates(subset=["objectid"], keep="last", ignore_index=True, inplace=True)
-    return df
+    return GameInfo(df, "")
+
+
+class PlayNo:
+    def __init__(self, df: pd.DataFrame, import_text):
+        self.data = df
+        self.import_text = import_text
 
 
 @st.cache_resource(show_spinner=False, ttl=24*3600)
-def get_play_no_db() -> pd.DataFrame:
+def get_play_no_db() -> PlayNo:
     df = pd.DataFrame()
     filename = get_name("playnum_infodb")
     q = f'"folder_processed" in parents and name contains "{filename}"'
@@ -37,7 +49,7 @@ def get_play_no_db() -> pd.DataFrame:
             if filename in item["name"]:
                 df = load_zip(item["id"])
                 df.drop_duplicates(subset=["objectid", "numplayers"], keep="last", ignore_index=True, inplace=True)
-    return df
+    return PlayNo(df, "")
 
 
 @st.cache_resource(show_spinner=False, ttl=24*3600)

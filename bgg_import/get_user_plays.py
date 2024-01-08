@@ -38,22 +38,20 @@ def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
             feedback = f'Cached data loaded. It is {how_fresh} old. Number of plays: {len(df)}'
-            # log_info(f'Plays of {username} loaded. It is {how_fresh} old.')
             return df, feedback
 
     # read the first page of play info from BGG
-    result = import_xml_from_bgg(f'plays?username={username}')
-    if result == "":
-        return pd.DataFrame, "BGG website reading error"
+    answer = import_xml_from_bgg(f'plays?username={username}')
+    if not answer.status:
+        return pd.DataFrame, answer.response
     """ BGG returns 100 plays per page
     The top of the XML page stores the number of plays in total
     Here we find this number so we know how many pages to read
     """
-    i = result.find("total=")
-    total = int("".join(filter(str.isdigit, result[i + 7:i + 12])))
+    i = answer.data.find("total=")
+    total = int("".join(filter(str.isdigit, answer.data[i + 7:i + 12])))
     if total == 0:
         feedback = f'User {username} haven\'t recorded any plays yet.'
-        # log_info(f'Importing plays: user {username} has not recorded any plays yet.')
         return df, feedback
     page_no, rest = divmod(total, 100)
     if rest > 0:
@@ -69,18 +67,18 @@ def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
     step = 0
     my_bar = st.progress(0, text=progress_text)
 
-    df_play = pd.read_xml(StringIO(result))
-    df_game = pd.read_xml(StringIO(result), xpath=".//item")
+    df_play = pd.read_xml(StringIO(answer.data))
+    df_game = pd.read_xml(StringIO(answer.data), xpath=".//item")
     step += 1
     my_bar.progress(step // step_all, text=progress_text)
 
     while page_no > 1:
-        result = import_xml_from_bgg(f'plays?username={username}&page={page_no}')
-        if result == "":
+        answer = import_xml_from_bgg(f'plays?username={username}&page={page_no}')
+        if not answer:
             return pd.DataFrame, "BGG website reading error"
-        df_play_next_page = pd.read_xml(StringIO(result))
+        df_play_next_page = pd.read_xml(StringIO(answer.data))
         df_play = pd.concat([df_play, df_play_next_page])
-        df_game_next_page = pd.read_xml(StringIO(result), xpath=".//item")
+        df_game_next_page = pd.read_xml(StringIO(answer.data), xpath=".//item")
         df_game = pd.concat([df_game, df_game_next_page])
         page_no -= 1
         step += 1

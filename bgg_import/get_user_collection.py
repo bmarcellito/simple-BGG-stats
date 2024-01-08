@@ -49,12 +49,12 @@ def user_collection(username: str, refresh: int) -> (pd.DataFrame, str):
             log_info(f'Collection of {username} loaded. It is {how_fresh} old.')
             return df, feedback
 
-    result = import_xml_from_bgg(f'collection?username={username}&stats=1')
-    if result == "":
+    answer = import_xml_from_bgg(f'collection?username={username}&stats=1')
+    if not answer.status:
         return pd.DataFrame, "BGG site reading error"
     # Game name and general game information
     try:
-        df = pd.read_xml(StringIO(result))
+        df = pd.read_xml(StringIO(answer.data))
     except ValueError:
         return pd.DataFrame(), "Some error happened :("
     df = df[["objectid", "name", "yearpublished", "numplays"]]
@@ -64,7 +64,7 @@ def user_collection(username: str, refresh: int) -> (pd.DataFrame, str):
 
     # User ratings
     try:
-        df_rating = pd.read_xml(StringIO(result), xpath=".//rating")
+        df_rating = pd.read_xml(StringIO(answer.data), xpath=".//rating")
         df_rating = pd.DataFrame(df_rating["value"])
         df_rating.rename(columns={"value": "user_rating"}, inplace=True)
     except ValueError:
@@ -75,7 +75,7 @@ def user_collection(username: str, refresh: int) -> (pd.DataFrame, str):
     df = pd.concat([df, df_rating], axis=1).reset_index(drop=True)
 
     # User information related to the games, like owned, ...
-    df_status = pd.read_xml(StringIO(result), xpath=".//status")
+    df_status = pd.read_xml(StringIO(answer.data), xpath=".//status")
     df = pd.concat([df, df_status], axis=1).reset_index(drop=True)
 
     df = df.sort_values("yearpublished").reset_index()
