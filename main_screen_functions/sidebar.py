@@ -40,24 +40,6 @@ def user_refresh_box(main_screen, ph_import) -> None:
         st.button(label="Refresh user's data", on_click=refresh_button_pushed, args=[main_screen, ph_import])
 
 
-# def user_import_box() -> (BggData, str):
-#     my_bgg_data = BggData()
-#     if st.session_state.user_state in ["No_user_selected", "No_valid_user", "Import_error"]:
-#         return my_bgg_data, ""
-#
-#     refresh_user_data = st.secrets["refresh_user_data"]
-#     with (st.status("Importing data...", expanded=True)):
-#         if st.session_state.user_state == "Regular_import":
-#             st.session_state.user_state = "Check_user"
-#             answer = check_user(username=st.session_state.bgg_username)
-#             st.session_state.user_state = answer.status
-#             if st.session_state.user_state in ["No_user_selected", "No_valid_user", "Import_error"]:
-#                 return my_bgg_data, answer.response
-#         if st.session_state.user_state == "Refresh_import":
-#             refresh_user_data = 0
-#         my_bgg_data = import_user_data(st.session_state.bgg_username, refresh_user_data)
-#     st.session_state.user_state = "User_imported"
-#     return my_bgg_data, ""
 def user_import_box() -> (BggData, str):
     with (st.status("Importing data...", expanded=True)):
         answer = check_user(username=st.session_state.bgg_username)

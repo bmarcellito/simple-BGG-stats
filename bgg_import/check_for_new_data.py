@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from threading import Thread
 import streamlit as st
 from streamlit.runtime.scriptrunner import add_script_run_ctx
@@ -19,10 +19,10 @@ def check_globals() -> None:
 
 def check_for_new_data() -> None:
     if "last_checked_globals" not in st.session_state:
-        st.session_state.last_checked_globals = str(datetime.now() - timedelta(minutes=1))
-    if str(datetime.now()) > st.session_state.last_checked_globals:
+        st.session_state.last_checked_globals = str(datetime.now(timezone.utc) - timedelta(minutes=1))
+    if str(datetime.now(timezone.utc)) > st.session_state.last_checked_globals:
         thread_check_globals = Thread(target=check_globals)
         thread_check_globals.name = "check_globals"
         add_script_run_ctx(thread_check_globals)
         thread_check_globals.start()
-        st.session_state.last_checked_globals = str(datetime.now() + timedelta(hours=24))
+        st.session_state.last_checked_globals = str(datetime.now(timezone.utc) + timedelta(hours=24))

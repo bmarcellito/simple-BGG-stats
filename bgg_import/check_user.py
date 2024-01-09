@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, date
 from io import StringIO
 import pandas as pd
 import streamlit as st
@@ -24,15 +24,16 @@ def is_user_in_cache(username, df_username_cache) -> str:
         return ""
 
     refresh_in_days = st.secrets["refresh_user_cache"]
-    user_rows = df_username_cache.query(f'username == "{username}"').reset_index()
-    if user_rows.empty:
+    st.caption("Loading username cache...")
+    user_row = df_username_cache.query(f'username == "{username}"').reset_index()
+    if user_row.empty:
         return ""
 
-    old_enough = str(datetime.date(datetime.now() - timedelta(days=refresh_in_days)))
-    if old_enough < user_rows.at[0, "last_checked"]:
-        return user_rows.at[0, "folder_id"]
+    old_enough = datetime.strftime(datetime.now(timezone.utc) - timedelta(days=refresh_in_days), "%m/%d/%Y, %H:%M:%S")
+    if old_enough < user_row.at[0, "last_checked"]:
+        return user_row.at[0, "folder_id"]
     else:
-        delete_user_info(username, user_rows.at[0, "folder_id"])
+        delete_user_info(username, user_row.at[0, "folder_id"])
         return ""
 
 
@@ -96,8 +97,9 @@ def import_user_info(username: str, result: str, folder_id: str) -> pd.DataFrame
     except ValueError:
         country = ""
 
+    last_checked = datetime.strftime(datetime.now(), "%Y-%m-%d, %H:%M:%S")
+
     # add user info to cache
-    just_now = str(datetime.date(datetime.now()))
     new_cache_row = pd.DataFrame(data={
         "user_id": user_id,
         "username": username,
@@ -106,7 +108,7 @@ def import_user_info(username: str, result: str, folder_id: str) -> pd.DataFrame
         "year_registered": year_registered,
         "country": country,
         "folder_id": folder_id,
-        "last_checked": just_now}, index=[0])
+        "last_checked": last_checked}, index=[0])
     return new_cache_row
 
 
@@ -153,3 +155,23 @@ def check_user(username: str) -> BggUserRequest:
     new_cache = save_user_info(new_cache_row, df_username_cache.data)
     df_username_cache.data = new_cache
     return BggUserRequest("User_found", "Username found on Bgg", folder_id)
+
+
+def refresh_last_checked(username: str) -> bool:
+    df_username_cache = get_username_cache()
+    if df_username_cache.data.empty:
+        return False
+
+    df_username_cache.data.loc[df_username_cache.data["username"] == username, "last_checked"] = datetime.date(
+        datetime.now(timezone.utc))
+    return True
+
+
+def get_user_last_checked(username: str) -> str:
+    df_username_cache = get_username_cache()
+    if df_username_cache.data.empty:
+        # TODO give error msg instead
+        return ""
+
+    user_row = df_username_cache.data.query(f'username == "{username}"').reset_index()
+    return user_row.at[0, "last_checked"]

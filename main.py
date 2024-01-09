@@ -44,10 +44,7 @@ if __name__ == "__main__":
         st.session_state.user_state = "No_user_selected"
     main()
 
-    # TODO token error
-    # TODO inform about the age of cached data - has to manage cache content for age
     # TODO import class - response, status + specific data class??? + öröklés?
-    # TODO user folder error
     # TODO return state, not just data, like file reading error, HTTP error -> new starting page on the right
     # TODO file reading, web reading no endless loop, but give up sometimes
     # TODO check for new data
@@ -74,3 +71,4 @@ if __name__ == "__main__":
     # TODO favor games: highest rated game for every year by publication year
     # TODO favor games: highest rated game for every year among the newly tried games that year
     # TODO stat: % of newly tried games - how many were published that year / earlier
+    # TODO datetime.now should be based on server time

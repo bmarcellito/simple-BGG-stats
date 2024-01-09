@@ -1,16 +1,30 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from io import StringIO
 import pandas as pd
+import streamlit as st
 
 from my_gdrive.search import search
-from my_gdrive.create_folder import create_folder
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
 from my_logger import log_info, log_error
 
 
-def user_collection(username: str, user_folder_id: str, refresh: int) -> (pd.DataFrame, str):
+class UserCollection:
+    def __init__(self, status: bool, import_msg: str, df: pd.DataFrame):
+        self.status = status
+        self.import_msg = import_msg
+        self.data = df
+
+
+@st.cache_resource(show_spinner=False, ttl=3600)
+def get_user_collection(username: str, folder_id: str) -> UserCollection:
+    refresh_user_data = st.secrets["refresh_user_data"]
+    imported_user_collection = import_user_collection(username, folder_id, refresh_user_data)
+    return imported_user_collection
+
+
+def import_user_collection(username: str, user_folder_id: str, refresh: int) -> UserCollection:
     """
     BGG adds all game you have interacted with into a collection
     Interaction: played with, rated, commented
@@ -28,15 +42,6 @@ def user_collection(username: str, user_folder_id: str, refresh: int) -> (pd.Dat
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    # q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '
-    #      f'and name contains "{username}"')
-    # items = search(query=q)
-    # if not items:
-    #     log_error(f'user_collection - No folder for user {username}. Cannot save collection.')
-    #     user_folder_id = create_folder(parent_folder="folder_user", folder_name=username)
-    # else:
-    #     user_folder_id = items[0]["id"]
-
     q = f'"{user_folder_id}" in parents and name contains "user_collection"'
     item = search(query=q)
     if item:
@@ -46,18 +51,18 @@ def user_collection(username: str, user_folder_id: str, refresh: int) -> (pd.Dat
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
             df = load_zip(file_id=file_id)
-            feedback = f'Cached data loaded. It is {how_fresh.days} days old. Number of items in collection: {len(df)}'
+            import_msg = f'Cached collection loaded. Number of items: {len(df)}.'
             log_info(f'Collection of {username} loaded. It is {how_fresh.days} days old.')
-            return df, feedback
+            return UserCollection(True, import_msg, df)
 
     answer = import_xml_from_bgg(f'collection?username={username}&stats=1')
     if not answer.status:
-        return pd.DataFrame, "BGG site reading error"
+        return UserCollection(False, answer.response, pd.DataFrame())
     # Game name and general game information
     try:
         df = pd.read_xml(StringIO(answer.data))
-    except ValueError:
-        return pd.DataFrame(), "Some error happened :("
+    except Exception as err:
+        return UserCollection(False, str(type(err)), pd.DataFrame())
     df = df[["objectid", "name", "yearpublished", "numplays"]]
     # filling missing publishing years
     df["yearpublished"] = df["yearpublished"].fillna(0)
@@ -82,6 +87,6 @@ def user_collection(username: str, user_folder_id: str, refresh: int) -> (pd.Dat
     df = df.sort_values("yearpublished").reset_index()
     overwrite_background(parent_folder=user_folder_id, filename="user_collection", df=df)
 
-    feedback = f'Collection imported. Number of games + expansions known: {len(df)}'
+    feedback = f'Collection imported. Number of items: {len(df)}.'
     log_info(f'Collection of {username} imported. Number of items: {len(df)}')
-    return df, feedback
+    return UserCollection(True, feedback, df)
