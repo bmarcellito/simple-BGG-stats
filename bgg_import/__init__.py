@@ -8,13 +8,13 @@ from bgg_import.get_functions import (get_game_infodb, get_play_no_db, get_user_
                                       get_username_cache)
 
 
-def import_user_data(username: str, refresh: int) -> BggData:
+def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggData:
     st.caption('Based on the size of the collection, importing can take couple of minutes!    \nPlease be patient!')
 
     st.caption(f'STEP 1/3: Importing collection of {username}...')
-    my_user_collection = get_user_collection(username)
+    my_user_collection = get_user_collection(username, user_folder_id)
     if refresh == 0:
-        df_collection, import_text = user_collection(username, 0)
+        df_collection, import_text = user_collection(username, user_folder_id, 0)
         my_user_collection.data = df_collection
         my_user_collection.import_text = import_text
         del df_collection
@@ -22,9 +22,9 @@ def import_user_data(username: str, refresh: int) -> BggData:
     st.caption(my_user_collection.import_text)
 
     st.caption(f'STEP 2/3: Importing plays of {username}...')
-    my_plays = get_user_plays(username)
+    my_plays = get_user_plays(username, user_folder_id)
     if refresh == 0:
-        df_user_plays, feedback_play = user_plays(username, 0)
+        df_user_plays, feedback_play = user_plays(username, user_folder_id, 0)
         my_plays.data = df_user_plays
         my_plays.import_text = feedback_play
         del df_user_plays

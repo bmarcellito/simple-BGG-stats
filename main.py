@@ -45,6 +45,8 @@ if __name__ == "__main__":
     main()
 
     # TODO token error
+    # TODO inform about the age of cached data - has to manage cache content for age
+    # TODO import class - response, status + specific data class??? + öröklés?
     # TODO user folder error
     # TODO return state, not just data, like file reading error, HTTP error -> new starting page on the right
     # TODO file reading, web reading no endless loop, but give up sometimes
@@ -55,10 +57,9 @@ if __name__ == "__main__":
     # TODO collection type can be shorter: "b" / "e"
     # TODO collection last modified can be just date
     # TODO remove item name from collection
-    # TODO remove item name from plays
+    # TODO remove comments, item name from plays
     # TODO plays with multiple quantity -> multiple row so no quantity column needed?
     # TODO import could create some merge and delete basic info
-    # TODO inform about the age of cached data
     # TODO some stat calculation can be separated into multiple functions
     # TODO cache writing semaphore
     # TODO google load timeout handle

@@ -100,7 +100,7 @@ def wait_for_my_turn(service: googleapiclient.discovery.Resource, token_id: str)
             break
         for item in items:
             item_time = datetime.strptime(item["modifiedTime"], "%Y-%m-%dT%H:%M:%S.%fZ")
-            if token_time > item_time:
+            if token_time < item_time:
                 oldest = False
         if oldest:
             break

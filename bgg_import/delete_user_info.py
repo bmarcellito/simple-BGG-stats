@@ -1,23 +1,16 @@
 from my_gdrive.delete_file import delete_file
-from my_gdrive.search import search
-from my_logger import log_error
+from my_gdrive.search import search_native
+from my_logger import log_info
 
 
-def delete_user_info(username: str) -> None:
-    q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '
-         f'and name contains "{username}"')
-    folder_items = search(query=q)
-    if not folder_items:
-        log_error(f'delete_user_info - Delete user: No folder to user: {username}, so no data to delete')
-        return None
-
-    items = search(query=f'"{folder_items[0]["id"]}" in parents')
+def delete_user_info(username: str, folder_id: str) -> None:
+    items = search_native(query=f'"{folder_id}" in parents')
     if not items:
-        log_error(f'delete_user_info - Delete user: No data to delete: {username}')
+        log_info(f'delete_user_info - Delete user: No data to delete: {username}')
         return None
-    else:
-        for item in items:
-            delete_file(file_id=item["id"])
 
-    # log_info(f'Delete user successfully: {username}')
+    for item in items:
+        delete_file(file_id=item["id"])
+    delete_file(folder_id)
+    log_info(f'Delete user successfully: {username}')
     return None

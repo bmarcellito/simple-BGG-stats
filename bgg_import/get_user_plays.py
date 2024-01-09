@@ -10,23 +10,23 @@ from bgg_import.import_xml_from_bgg import import_xml_from_bgg
 from my_logger import log_error
 
 
-def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
+def user_plays(username: str, user_folder_id, refresh: int) -> (pd.DataFrame, str):
     """
     Importing all play instances uf a specific user from BGG website
     Has to import for every user separately, so used every time a new user is chosen
     :param username: BGG username
+    :param user_folder_id: ID of the user's folder where the cached data is stored
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
     df = pd.DataFrame()
 
-    q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '
-         f'and name contains "{username}"')
-    items = search(query=q)
-    if not items:
-        log_error(f'user_plays - No folder for user {username}. Cannot save collection.')
-        return pd.DataFrame(), "Missing user folder"
-    user_folder_id = items[0]["id"]
+    # q = f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" and name contains "{username}"'
+    # items = search(query=q)
+    # if not items:
+    #     log_error(f'user_plays - No folder for user {username}. Cannot save collection.')
+    #     return pd.DataFrame(), "Missing user folder"
+    # user_folder_id = items[0]["id"]
 
     q = f'"{user_folder_id}" in parents and name contains "user_plays"'
     item = search(query=q)
@@ -37,7 +37,7 @@ def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
-            feedback = f'Cached data loaded. It is {how_fresh} old. Number of plays: {len(df)}'
+            feedback = f'Cached data loaded. Number of plays: {len(df)}'
             return df, feedback
 
     # read the first page of play info from BGG
@@ -76,7 +76,10 @@ def user_plays(username: str, refresh: int) -> (pd.DataFrame, str):
         answer = import_xml_from_bgg(f'plays?username={username}&page={page_no}')
         if not answer:
             return pd.DataFrame, "BGG website reading error"
-        df_play_next_page = pd.read_xml(StringIO(answer.data))
+        try:
+            df_play_next_page = pd.read_xml(StringIO(answer.data))
+        except Exception as err:
+            return pd.DataFrame, err
         df_play = pd.concat([df_play, df_play_next_page])
         df_game_next_page = pd.read_xml(StringIO(answer.data), xpath=".//item")
         df_game = pd.concat([df_game, df_game_next_page])

@@ -10,7 +10,7 @@ from bgg_import.import_xml_from_bgg import import_xml_from_bgg
 from my_logger import log_info, log_error
 
 
-def user_collection(username: str, refresh: int) -> (pd.DataFrame, str):
+def user_collection(username: str, user_folder_id: str, refresh: int) -> (pd.DataFrame, str):
     """
     BGG adds all game you have interacted with into a collection
     Interaction: played with, rated, commented
@@ -24,29 +24,30 @@ def user_collection(username: str, refresh: int) -> (pd.DataFrame, str):
     So it is parsed twice, into 2 dataframes: df has the game information, df_status has the attributes
     At the end the 2 dataframes are concatenated 1:1
     :param username: user ID of the specific user
+    :param user_folder_id: ID of the user's folder where the cache is stored
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '
-         f'and name contains "{username}"')
-    items = search(query=q)
-    if not items:
-        log_error(f'user_collection - No folder for user {username}. Cannot save collection.')
-        user_folder_id = create_folder(parent_folder="folder_user", folder_name=username)
-    else:
-        user_folder_id = items[0]["id"]
+    # q = (f'"folder_user" in parents and mimeType = "application/vnd.google-apps.folder" '
+    #      f'and name contains "{username}"')
+    # items = search(query=q)
+    # if not items:
+    #     log_error(f'user_collection - No folder for user {username}. Cannot save collection.')
+    #     user_folder_id = create_folder(parent_folder="folder_user", folder_name=username)
+    # else:
+    #     user_folder_id = items[0]["id"]
 
     q = f'"{user_folder_id}" in parents and name contains "user_collection"'
     item = search(query=q)
     if item:
         file_id = item[0]["id"]
-        df = load_zip(file_id=file_id)
         last_imported = item[0]["modifiedTime"]
         last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
         how_fresh = datetime.now() - last_imported
         if how_fresh.days < refresh:
-            feedback = f'Cached data loaded. It is {how_fresh} old. Number of items in collection: {len(df)}'
-            log_info(f'Collection of {username} loaded. It is {how_fresh} old.')
+            df = load_zip(file_id=file_id)
+            feedback = f'Cached data loaded. It is {how_fresh.days} days old. Number of items in collection: {len(df)}'
+            log_info(f'Collection of {username} loaded. It is {how_fresh.days} days old.')
             return df, feedback
 
     answer = import_xml_from_bgg(f'collection?username={username}&stats=1')

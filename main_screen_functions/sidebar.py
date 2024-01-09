@@ -69,7 +69,7 @@ def user_import_box() -> (BggData, str):
             refresh_user_data = 0
         else:
             refresh_user_data = st.secrets["refresh_user_data"]
-        my_bgg_data = import_user_data(st.session_state.bgg_username, refresh_user_data)
+        my_bgg_data = import_user_data(st.session_state.bgg_username, answer.folder_id, refresh_user_data)
         st.session_state.user_state = "User_imported"
     return my_bgg_data, ""
 

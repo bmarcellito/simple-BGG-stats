@@ -92,9 +92,9 @@ class Collection:
 
 
 @st.cache_resource(show_spinner=False, ttl=3600)
-def get_user_collection(username) -> Collection:
+def get_user_collection(username: str, folder_id: str) -> Collection:
     refresh_user_data = st.secrets["refresh_user_data"]
-    df, import_text = user_collection(username, refresh_user_data)
+    df, import_text = user_collection(username, folder_id, refresh_user_data)
     imported_user = Collection(df, import_text)
     return imported_user
 
@@ -106,15 +106,21 @@ class Plays:
 
 
 @st.cache_resource(show_spinner=False, ttl=3600)
-def get_user_plays(username) -> Plays:
+def get_user_plays(username: str, folder_id: str) -> Plays:
     refresh_user_data = st.secrets["refresh_user_data"]
-    df, import_text = user_plays(username, refresh_user_data)
+    df, import_text = user_plays(username, folder_id, refresh_user_data)
     imported_plays = Plays(df, import_text)
     return imported_plays
 
 
+class UsernameCache:
+    def __init__(self, df: pd.DataFrame, import_text):
+        self.data = df
+        self.import_text = import_text
+
+
 @st.cache_resource(show_spinner=False, ttl=24*3600)
-def get_username_cache() -> pd.DataFrame:
+def get_username_cache() -> UsernameCache:
     df = pd.DataFrame()
     filename = get_name("check_user_cache")
     q = f'"folder_processed" in parents and name contains "{filename}"'
@@ -126,4 +132,4 @@ def get_username_cache() -> pd.DataFrame:
             if filename in item["name"]:
                 df = load_zip(item["id"])
                 df.drop_duplicates(subset=["username"], keep="last", ignore_index=True, inplace=True)
-    return df
+    return UsernameCache(df, "")
