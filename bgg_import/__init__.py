@@ -10,7 +10,7 @@ from bgg_import.check_user import refresh_last_checked, get_user_last_checked
 
 
 def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggData:
-    def age_of_cached_data(username: str) -> int:
+    def age_of_cached_data() -> int:
         time_of_creation = str(get_user_last_checked(username))
         time = datetime.strptime(time_of_creation, "%Y-%m-%d, %H:%M:%S")
         age = datetime.now() - time
@@ -29,7 +29,7 @@ def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggDat
         refresh_last_checked(username)
         del fresh_user_collection
     if my_user_collection.status:
-        how_fresh = age_of_cached_data(username)
+        how_fresh = age_of_cached_data()
         st.caption(f'{my_user_collection.import_msg} It is {how_fresh} days old.')
     else:
         st.caption(my_user_collection.import_msg)
@@ -38,11 +38,11 @@ def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggDat
     st.caption(f'STEP 2/3: Importing plays of {username}...')
     my_plays = get_user_plays(username, user_folder_id)
     if refresh == 0:
-        df_user_plays, feedback_play = import_user_plays(username, user_folder_id, 0)
-        my_plays.data = df_user_plays
-        my_plays.import_msg = feedback_play
-        del df_user_plays
-        del feedback_play
+        fresh_user_plays = import_user_plays(username, user_folder_id, 0)
+        my_plays.status = fresh_user_plays.status
+        my_plays.data = fresh_user_plays.data
+        my_plays.import_msg = fresh_user_plays.import_msg
+        del fresh_user_plays
     st.caption(my_plays.import_msg)
 
     df_game_infodb = get_game_infodb()

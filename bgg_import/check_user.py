@@ -98,7 +98,6 @@ def import_user_info(username: str, result: str, folder_id: str) -> pd.DataFrame
         country = ""
 
     last_checked = datetime.strftime(datetime.now(), "%Y-%m-%d, %H:%M:%S")
-
     # add user info to cache
     new_cache_row = pd.DataFrame(data={
         "user_id": user_id,
@@ -162,8 +161,8 @@ def refresh_last_checked(username: str) -> bool:
     if df_username_cache.data.empty:
         return False
 
-    df_username_cache.data.loc[df_username_cache.data["username"] == username, "last_checked"] = datetime.date(
-        datetime.now(timezone.utc))
+    last_checked = datetime.strftime(datetime.now(), "%Y-%m-%d, %H:%M:%S")
+    df_username_cache.data.loc[df_username_cache.data["username"] == username, "last_checked"] = last_checked
     return True
 
 

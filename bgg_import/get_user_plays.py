@@ -32,17 +32,18 @@ def import_user_plays(username: str, user_folder_id, refresh: int) -> UserPlays:
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    q = f'"{user_folder_id}" in parents and name contains "user_plays"'
-    item = search(query=q)
-    if item:
-        file_id = item[0]["id"]
-        last_imported = item[0]["modifiedTime"]
-        last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
-        how_fresh = datetime.now() - last_imported
-        if how_fresh.days < refresh:
-            df = load_zip(file_id=file_id)
-            import_msg = f'Cached data loaded. Number of plays: {len(df)}'
-            return UserPlays(True, import_msg, df)
+    if refresh > 0:
+        q = f'"{user_folder_id}" in parents and name contains "user_plays"'
+        item = search(query=q)
+        if item:
+            file_id = item[0]["id"]
+            last_imported = item[0]["modifiedTime"]
+            last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
+            how_fresh = datetime.now() - last_imported
+            if how_fresh.days < refresh:
+                df = load_zip(file_id=file_id)
+                import_msg = f'Cached data loaded. Number of plays: {len(df)}'
+                return UserPlays(True, import_msg, df)
 
     # read the first page of play info from BGG
     answer = import_xml_from_bgg(f'plays?username={username}')
@@ -79,10 +80,19 @@ def import_user_plays(username: str, user_folder_id, refresh: int) -> UserPlays:
     while page_no > 1:
         answer = import_xml_from_bgg(f'plays?username={username}&page={page_no}')
         if not answer:
+            my_bar.empty()
             return UserPlays(False, "BGG website reading error", pd.DataFrame())
         try:
             df_play_next_page = pd.read_xml(StringIO(answer.data))
+        except SyntaxError as err:
+            my_bar.empty()
+            print("-----------------------------")
+            print(page_no)
+            print(answer.data)
+            print("-----------------------------")
+            return UserPlays(False, f'Syntax error: {type(err)}, {err}', pd.DataFrame())
         except Exception as err:
+            my_bar.empty()
             return UserPlays(False, str(type(err)), pd.DataFrame())
         df_play = pd.concat([df_play, df_play_next_page])
         df_game_next_page = pd.read_xml(StringIO(answer.data), xpath=".//item")

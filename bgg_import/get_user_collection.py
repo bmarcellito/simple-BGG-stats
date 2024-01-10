@@ -42,18 +42,19 @@ def import_user_collection(username: str, user_folder_id: str, refresh: int) -> 
     :param refresh: if the previously imported data is older in days, new import will happen
     :return: imported data in dataframe
     """
-    q = f'"{user_folder_id}" in parents and name contains "user_collection"'
-    item = search(query=q)
-    if item:
-        file_id = item[0]["id"]
-        last_imported = item[0]["modifiedTime"]
-        last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
-        how_fresh = datetime.now() - last_imported
-        if how_fresh.days < refresh:
-            df = load_zip(file_id=file_id)
-            import_msg = f'Cached collection loaded. Number of items: {len(df)}.'
-            log_info(f'Collection of {username} loaded. It is {how_fresh.days} days old.')
-            return UserCollection(True, import_msg, df)
+    if refresh > 0:
+        q = f'"{user_folder_id}" in parents and name contains "user_collection"'
+        item = search(query=q)
+        if item:
+            file_id = item[0]["id"]
+            last_imported = item[0]["modifiedTime"]
+            last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
+            how_fresh = datetime.now() - last_imported
+            if how_fresh.days < refresh:
+                df = load_zip(file_id=file_id)
+                import_msg = f'Cached collection loaded. Number of items: {len(df)}.'
+                log_info(f'Collection of {username} loaded. It is {how_fresh.days} days old.')
+                return UserCollection(True, import_msg, df)
 
     answer = import_xml_from_bgg(f'collection?username={username}&stats=1')
     if not answer.status:
