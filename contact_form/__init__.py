@@ -7,8 +7,7 @@ from main_screen_functions.presentation_hack import clear_ph_element
 
 def contact_form_button(main_screen) -> None:
     def contact_button_pushed(el_main_screen) -> None:
-        st.session_state.previous_user_state = st.session_state.user_state
-        st.session_state.user_state = "Contact_form"
+        st.session_state.app_state = "Contact_form"
         st.session_state.contact_form_state = "Init"
         clear_ph_element([el_main_screen])
 
@@ -17,7 +16,7 @@ def contact_form_button(main_screen) -> None:
 
 def present_contact_sent(main_screen) -> None:
     def thx_button_pushed(el_main_screen) -> None:
-        st.session_state.user_state = st.session_state.previous_user_state
+        st.session_state.app_state = "User_view"
         clear_ph_element([el_main_screen])
 
     st.title("Contact form sent")
@@ -37,7 +36,7 @@ def present_contact_form(main_screen) -> None:
         clear_ph_element([el_main_screen])
 
     def later_button_pushed(el_main_screen) -> None:
-        st.session_state.user_state = st.session_state.previous_user_state
+        st.session_state.app_state = "User_view"
         clear_ph_element([el_main_screen])
 
     st.title("Contact form")

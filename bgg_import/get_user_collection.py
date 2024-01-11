@@ -7,7 +7,7 @@ from my_gdrive.search import search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
-from my_logger import log_info, log_error
+from my_logger import log_error
 
 
 class UserCollection:
@@ -53,7 +53,6 @@ def import_user_collection(username: str, user_folder_id: str, refresh: int) -> 
             if how_fresh.days < refresh:
                 df = load_zip(file_id=file_id)
                 import_msg = f'Cached collection loaded. Number of items: {len(df)}.'
-                log_info(f'Collection of {username} loaded. It is {how_fresh.days} days old.')
                 return UserCollection(True, import_msg, df)
 
     answer = import_xml_from_bgg(f'collection?username={username}&stats=1')
@@ -89,5 +88,4 @@ def import_user_collection(username: str, user_folder_id: str, refresh: int) -> 
     overwrite_background(parent_folder=user_folder_id, filename="user_collection", df=df)
 
     feedback = f'Collection imported. Number of items: {len(df)}.'
-    log_info(f'Collection of {username} imported. Number of items: {len(df)}')
     return UserCollection(True, feedback, df)
