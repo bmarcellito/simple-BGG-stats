@@ -74,7 +74,10 @@ def calculate_basics(bgg_username: str, df_collection: pd.DataFrame, df_plays: p
             "All": [collection_all, owned_all, not_played_all, plays_all, tried_all, more_all, rated_all]}
     df_basic = pd.DataFrame(data, index=pd.RangeIndex(start=1, stop=8, step=1))
 
-    user_info = df_user_cache.query(f'username == "{bgg_username}"').reset_index()
+    if len(df_user_cache)>0:
+        user_info = df_user_cache.query(f'username == "{bgg_username}"').reset_index()
+    else:
+        user_info = pd.DataFrame()
     try:
         first_name = user_info.loc[0, "first_name"]
         if first_name != first_name:
