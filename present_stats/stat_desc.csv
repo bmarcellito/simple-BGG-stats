@@ -15,20 +15,22 @@ Data used:
 - user's collection for the items the user knows (xmlapi2/collection)
 - Detailed board game info for designer info and board game type to separate board games and extensions (xmlapi2/thing)"
 3,stat_not_played,
-4,games_by_publication,"The chart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that were published before the 'starting year' selected - are added to the first year.
+4,games_by_publication,
+5	,plays_by_publication,"First graph:
+
+The chart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that was puChart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that were published before the 'starting year' selected - are added to the first year.
+
+Second graph:
+
+This statistic show how old board games we play each year. Most of us tend to play with recently published games, and our limited time force us to forget great but older games.
 
 Data used:
-- user's collection for the year of publishing, and information whether the item is known for the user (xmlapi2/collection)
+- user's collection for the year of publishing, ownership, and information whether the item is known for the user (xmlapi2/collection)
 - Note: technically it is possible that the user can have plays documented to an item that is not part of his / her collection
+- user's documented plays for Number and dates of plays (xmlapi2/plays)
 - Note: BGG does not have publication year info on all items. The missing data is filled with 0.
-- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing)"
-5	,plays_by_publication,"The chart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that was puChart represents all items that the user has played with. Sorting the items based on their publication year. Any games - that were published before the 'starting year' selected - are added to the first year.
-
-Data used:
-- user's collection for the year of publishing, and information whether the item is known for the user (xmlapi2/collection)
-- Note: technically it is possible that the user can have plays documented to an item that is not part of his / her collection
-- Note: BGG does not have publication year info on all items. The missing data is filled with 0.
-- Detailed board game info for board game type to separate board games and extensions (xmlapi2/thing) published before the 'starting year' selected - are added to the first year."
+- detailed board game info for board game type (to separate board games and extensions) and publication date (xmlapi2/thing)
+"
 6,h-index,"Your h-index is the smallest number of games that you have played at least that number of times.
 
 Data used:

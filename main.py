@@ -62,7 +62,6 @@ if __name__ == "__main__":
     # TODO cache writing semaphore
     # TODO change token mgmt - separate token for each file
     # TODO new game appears in a new historic file - what will happen?
-    # TODO monthly play no
     # TODO stat for every year: average publication year / complexity of games tried
     # TODO stat for every year: average publication year / complexity of games played
     # TODO stat for every year: average publication year / complexity of games known

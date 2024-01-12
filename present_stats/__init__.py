@@ -5,8 +5,7 @@ from present_stats.basics import present_basics
 from present_stats.collection import present_collection
 from present_stats.h_index import present_h_index
 from present_stats.favourite_designers import present_favourite_designers
-from present_stats.games_by_publication_year import present_games_by_publication_year
-from present_stats.age_of_games_played import present_age_of_games_played
+from present_stats.by_publication_year import present_by_publication_year
 from present_stats.games_by_weight import present_games_by_weight
 from present_stats.plays_by_years import present_plays_by_years
 from present_stats.bgg_toplist import present_bgg_toplist
@@ -35,8 +34,7 @@ def present_stat_selector(my_bgg_data: BggData) -> None:
                       'User collection',
                       'Favourite designers',
                       'H-index',
-                      'Games tried grouped by year of publication',
-                      'Age of games played',
+                      'Games and plays by publication years',
                       'Weight distribution of user\'s games and plays',
                       'Play statistics by year',
                       'Games known from BGG top list',
@@ -59,8 +57,7 @@ def present_stat_selector(my_bgg_data: BggData) -> None:
             case "User collection": present_collection(my_bgg_data)
             case "Favourite designers": present_favourite_designers(my_bgg_data)
             case "H-index": present_h_index(my_bgg_data)
-            case "Games tried grouped by year of publication": present_games_by_publication_year(my_bgg_data)
-            case "Age of games played": present_age_of_games_played(my_bgg_data)
+            case "Games and plays by publication years": present_by_publication_year(my_bgg_data)
             case "Weight distribution of user's games and plays": present_games_by_weight(my_bgg_data)
             case "Play statistics by year": present_plays_by_years(my_bgg_data)
             case "Games known from BGG top list": present_bgg_toplist(my_bgg_data)
