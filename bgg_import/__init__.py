@@ -30,7 +30,7 @@ def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggDat
         del fresh_user_collection
     if my_user_collection.status:
         how_fresh = age_of_cached_data()
-        st.caption(f'{my_user_collection.import_msg} It is {how_fresh} days old.')
+        st.caption(f'{my_user_collection.import_msg} Data is {how_fresh} days old in cache.')
     else:
         st.caption(my_user_collection.import_msg)
         return BggData()

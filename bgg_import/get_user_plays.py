@@ -7,6 +7,7 @@ from my_gdrive.search import search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
+from my_logger import log_error
 
 
 class UserPlays:
@@ -86,10 +87,7 @@ def import_user_plays(username: str, user_folder_id, refresh: int) -> UserPlays:
             df_play_next_page = pd.read_xml(StringIO(answer.data))
         except SyntaxError as err:
             my_bar.empty()
-            print("-----------------------------")
-            print(page_no)
-            print(answer.data)
-            print("-----------------------------")
+            log_error(f'Username: {username}, Page no: {page_no}, Syntax error: {type(err)}, {err}')
             return UserPlays(False, f'Syntax error: {type(err)}, {err}', pd.DataFrame())
         except Exception as err:
             my_bar.empty()

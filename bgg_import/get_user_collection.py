@@ -59,6 +59,9 @@ def import_user_collection(username: str, user_folder_id: str, refresh: int) -> 
     if not answer.status:
         return UserCollection(False, answer.response, pd.DataFrame())
     # Game name and general game information
+    if answer.data.find('totalitems="0"') >= 0:
+        # the collection is empty
+        return UserCollection(True, "Collection is empty.", pd.DataFrame())
     try:
         df = pd.read_xml(StringIO(answer.data))
     except Exception as err:
