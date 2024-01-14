@@ -1,7 +1,7 @@
 import streamlit as st
 
 from main_screen_functions.bgg_data_class import BggData
-from bgg_import.check_user import check_user
+from bgg_import.check_user import check_user, get_user_folder
 from bgg_import import import_user_data
 from contact_form import contact_form_button
 from main_screen_functions.presentation_hack import clear_ph_element
@@ -46,20 +46,21 @@ def user_refresh_box(main_screen, ph_import) -> None:
         st.button(label="Refresh user's data", on_click=refresh_button_pushed, args=[main_screen, ph_import])
 
 
-def user_import_box() -> (BggData, str):
+def user_import_box() -> BggData:
     with (st.status("Importing data...", expanded=True)):
         answer = check_user(username=st.session_state.bgg_username)
-        if answer.status in ["No_user_selected", "No_valid_user", "Import_error"]:
-            st.session_state.user_state = answer.status
-            return BggData(), answer.response
+        if answer in ["No_user_selected", "No_valid_user", "Import_error"]:
+            st.session_state.user_state = answer
+            return BggData()
 
         if st.session_state.user_state == "Refresh_import":
             refresh_user_data = 0
         else:
             refresh_user_data = st.secrets["refresh_user_data"]
-        my_bgg_data = import_user_data(st.session_state.bgg_username, answer.folder_id, refresh_user_data)
+        folder_id = get_user_folder(username=st.session_state.bgg_username)
+        my_bgg_data = import_user_data(st.session_state.bgg_username, folder_id, refresh_user_data)
         st.session_state.user_state = "User_imported"
-    return my_bgg_data, ""
+    return my_bgg_data
 
 
 def contact_form_box(main_screen) -> None:
@@ -70,7 +71,7 @@ def admin_box(main_screen) -> None:
     admin_button(main_screen)
 
 
-def present_sidebar(main_screen) -> (BggData, str):
+def present_sidebar(main_screen) -> BggData:
     st.title("BGG statistics")
     ph_interaction = st.empty()
     ph_import = st.empty()
@@ -79,11 +80,11 @@ def present_sidebar(main_screen) -> (BggData, str):
     with ph_interaction.container():
         user_name_box(main_screen, ph_import)
     with ph_import.container():
-        my_bgg_data, error_msg = user_import_box()
+        my_bgg_data = user_import_box()
         user_refresh_box(main_screen, ph_import)
     with ph_contact.container():
         contact_form_box(main_screen)
     if st.secrets["environment"] == "dev":
         with ph_admin.container():
             admin_box(main_screen)
-    return my_bgg_data, error_msg
+    return my_bgg_data

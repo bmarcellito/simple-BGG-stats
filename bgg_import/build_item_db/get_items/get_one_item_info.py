@@ -13,8 +13,8 @@ def get_one_item_info(i, xml_text: str) -> (pd.DataFrame, pd.DataFrame, bool):
     except ValueError:
         log_error(f'get_one_item_info - Objectid: {i}. User has related record, however BGG miss this item!')
         return pd.DataFrame(), pd.DataFrame(), False
-    except Exception as e:
-        log_error(f'get_one_item_info - Objectid: {i}. XML reading error in "get_one_item_info" function. {e}')
+    except Exception as error:
+        log_error(f'get_one_item_info - Objectid: {i}. XML reading error in "get_one_item_info" function. {error}')
         return pd.DataFrame(), pd.DataFrame(), True
     row_type = df_item.iloc[0, 0]
     if row_type not in ("boardgame", "boardgameexpansion"):

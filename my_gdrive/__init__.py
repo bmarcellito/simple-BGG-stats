@@ -29,8 +29,10 @@ def authenticate() -> googleapiclient.discovery.Resource:
         creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
     except Exception as error:
         log_error(f'authenticate - creds - {error}')
+        raise ValueError("Failed to authenticate")
     try:
         service = build('drive', 'v3', credentials=creds, cache_discovery=False)
     except Exception as error:
         log_error(f'authenticate - build - {error}')
+        raise ValueError("Failed to authenticate")
     return service

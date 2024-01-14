@@ -1,6 +1,6 @@
 import pandas as pd
 
-from my_gdrive.search import search
+from my_gdrive.search import file_search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from my_logger import log_info, log_error
@@ -15,16 +15,22 @@ def import_current_ranking(df_current_ranking: pd.DataFrame) -> pd.DataFrame:
     :return: imported data in dataframe
     """
     q = f'"folder_original" in parents and name contains "current_ranking_source"'
-    items_source = search(query=q)
+    try:
+        items_source = file_search(query=q)
+    except ValueError:
+        items_source = None
     if not items_source:
-        source_last_modified = 0
         data_source = False
+        source_last_modified = 0
     else:
-        source_last_modified = items_source[0]["modifiedTime"]
         data_source = True
+        source_last_modified = items_source[0]["modifiedTime"]
 
     q = f'"folder_processed" in parents and name contains "current_ranking_processed"'
-    items_processed = search(query=q)
+    try:
+        items_processed = file_search(query=q)
+    except ValueError:
+        items_processed = None
     if not items_processed:
         data_processed = False
         process_last_modified = 0
@@ -45,7 +51,10 @@ def import_current_ranking(df_current_ranking: pd.DataFrame) -> pd.DataFrame:
             # initial loading already loaded it.
             return df_current_ranking
 
-    df = load_zip(file_id=items_source[0]["id"])
+    try:
+        df = load_zip(file_id=items_source[0]["id"])
+    except ValueError:
+        return df_current_ranking
     df = df[["id", "name", "yearpublished", "rank", "abstracts_rank", "cgs_rank", "childrensgames_rank",
              "familygames_rank", "partygames_rank", "strategygames_rank", "thematic_rank", "wargames_rank"]]
     df.rename(columns={"id": "objectid"}, inplace=True)

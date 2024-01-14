@@ -4,7 +4,7 @@ import pandas as pd
 import googleapiclient.discovery
 from googleapiclient.http import MediaIoBaseUpload
 
-from my_gdrive.search import search
+from my_gdrive.search import file_search
 from my_logger import log_info, log_error
 from my_gdrive.constants import get_name
 
@@ -33,10 +33,9 @@ def create_token(service: googleapiclient.discovery.Resource) -> str:
         try:
             session_folder_id = get_name("folder_session")
             token_id = save_new_csv_file(service, parent_folder=session_folder_id, file_name=token, df=df_session)
-            # log_info(f'create_token - created {token_id}')
             break
-        except Exception as e:
-            log_error(f'create_token - cannot save {token}. {e}')
+        except Exception as error:
+            log_error(f'create_token - cannot save {token}. {error}')
             pass
     return token_id
 
@@ -44,7 +43,10 @@ def create_token(service: googleapiclient.discovery.Resource) -> str:
 def wait_for_my_turn(service: googleapiclient.discovery.Resource, token_id: str) -> int:
     # waits until this is the first token in time (wait till other threads finish)
     # find the token
-    items = search(query=f'"folder_session" in parents')
+    try:
+        items = file_search(query=f'"folder_session" in parents')
+    except ValueError:
+        raise ValueError("Search error")
     if not items:
         log_error(f'wait_for_my_turn - No tokens in the folder - {token_id}')
         return 0
@@ -64,14 +66,17 @@ def wait_for_my_turn(service: googleapiclient.discovery.Resource, token_id: str)
             try:
                 service.files().delete(fileId=item["id"]).execute()
                 log_info(f'wait_for_my_turn - Old token deleted: {item["name"]}')
-            except Exception as e:
-                log_error(f'wait_for_my_turn - Failed old token deleted: {item["name"]}. {e}')
+            except Exception as error:
+                log_error(f'wait_for_my_turn - Failed old token deleted: {item["name"]}. {error}')
 
     # wait till all older tokens are gone = other threads finished writing files
     waiting = 0
     oldest = True
     while oldest:
-        items = search(query=f'"folder_session" in parents')
+        try:
+            items = file_search(query=f'"folder_session" in parents')
+        except ValueError:
+            raise ValueError("Search error")
         if not items:
             log_error(f'wait_for_my_turn - Token {token_id} disappeared!')
             break
@@ -89,6 +94,5 @@ def wait_for_my_turn(service: googleapiclient.discovery.Resource, token_id: str)
 def delete_token(service: googleapiclient.discovery.Resource, token_id: str) -> None:
     try:
         service.files().delete(fileId=token_id).execute()
-        # log_info(f'delete_token - successful {token_id}')
-    except Exception as e:
-        log_error(f'delete_token - Could not delete {token_id} - {e}')
+    except Exception as error:
+        log_error(f'delete_token - Could not delete {token_id} - {error}')

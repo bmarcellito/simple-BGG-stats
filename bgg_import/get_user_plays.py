@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from io import StringIO
 import pandas as pd
 import streamlit as st
 
-from my_gdrive.search import search
+from my_gdrive.search import file_search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
@@ -35,27 +35,34 @@ def import_user_plays(username: str, user_folder_id, refresh: int) -> UserPlays:
     """
     if refresh > 0:
         q = f'"{user_folder_id}" in parents and name contains "user_plays"'
-        item = search(query=q)
+        try:
+            item = file_search(query=q)
+        except ValueError:
+            item = None
         if item:
             file_id = item[0]["id"]
             last_imported = item[0]["modifiedTime"]
             last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
             how_fresh = datetime.now() - last_imported
             if how_fresh.days < refresh:
-                df = load_zip(file_id=file_id)
-                import_msg = f'Cached data loaded. Number of plays: {len(df)}'
-                return UserPlays(True, import_msg, df)
+                try:
+                    df = load_zip(file_id=file_id)
+                    import_msg = f'Cached data loaded. Number of plays: {len(df)}'
+                    return UserPlays(True, import_msg, df)
+                except ValueError:
+                    pass
 
     # read the first page of play info from BGG
-    answer = import_xml_from_bgg(f'plays?username={username}')
-    if not answer.status:
-        return UserPlays(False, answer.response, pd.DataFrame())
+    try:
+        answer = import_xml_from_bgg(f'plays?username={username}')
+    except ValueError:
+        return UserPlays(False, "BGG website error", pd.DataFrame())
     """ BGG returns 100 plays per page
     The top of the XML page stores the number of plays in total
     Here we find this number so we know how many pages to read
     """
-    i = answer.data.find("total=")
-    total = int("".join(filter(str.isdigit, answer.data[i + 7:i + 12])))
+    i = answer.find("total=")
+    total = int("".join(filter(str.isdigit, answer[i + 7:i + 12])))
     if total == 0:
         import_msg = f'User {username} haven\'t recorded any plays yet.'
         return UserPlays(True, import_msg, pd.DataFrame())
@@ -73,27 +80,28 @@ def import_user_plays(username: str, user_folder_id, refresh: int) -> UserPlays:
     step = 0
     my_bar = st.progress(0, text=progress_text)
 
-    df_play = pd.read_xml(StringIO(answer.data))
-    df_game = pd.read_xml(StringIO(answer.data), xpath=".//item")
+    df_play = pd.read_xml(StringIO(answer))
+    df_game = pd.read_xml(StringIO(answer), xpath=".//item")
     step += 1
     my_bar.progress(step // step_all, text=progress_text)
 
     while page_no > 1:
-        answer = import_xml_from_bgg(f'plays?username={username}&page={page_no}')
-        if not answer:
+        try:
+            answer = import_xml_from_bgg(f'plays?username={username}&page={page_no}')
+        except ValueError:
             my_bar.empty()
             return UserPlays(False, "BGG website reading error", pd.DataFrame())
         try:
-            df_play_next_page = pd.read_xml(StringIO(answer.data))
+            df_play_next_page = pd.read_xml(StringIO(answer))
         except SyntaxError as err:
             my_bar.empty()
             log_error(f'Username: {username}, Page no: {page_no}, Syntax error: {type(err)}, {err}')
             return UserPlays(False, f'Syntax error: {type(err)}, {err}', pd.DataFrame())
-        except Exception as err:
+        except Exception as error:
             my_bar.empty()
-            return UserPlays(False, str(type(err)), pd.DataFrame())
+            return UserPlays(False, str(type(error)), pd.DataFrame())
         df_play = pd.concat([df_play, df_play_next_page])
-        df_game_next_page = pd.read_xml(StringIO(answer.data), xpath=".//item")
+        df_game_next_page = pd.read_xml(StringIO(answer), xpath=".//item")
         df_game = pd.concat([df_game, df_game_next_page])
         page_no -= 1
         step += 1

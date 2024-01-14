@@ -14,14 +14,14 @@ if st.secrets["environment"] == "dev":
     from main_screen_functions.extra_admin import extra_admin
 
 
-def present_main_screen(main_screen, my_bgg_data: BggData, error_msg: str) -> None:
+def present_main_screen(main_screen, my_bgg_data: BggData) -> None:
     match st.session_state.app_state:
         case "User_view":
             match st.session_state.user_state:
                 case "User_imported": present_stat_selector(my_bgg_data)
                 case "No_user_selected": present_starting_screen()
                 case "No_valid_user": present_invalid_user()
-                case "Input_error": present_input_error(error_msg)
+                case "Input_error": present_input_error()
         case "Contact_form": contact_form(main_screen)
         case "Admin": extra_admin(my_bgg_data, main_screen)
 
@@ -30,9 +30,9 @@ def main():
     sidebar = st.sidebar.empty()
     main_screen = st.empty()
     with sidebar.container():
-        my_bgg_data, error_msg = present_sidebar(main_screen)
+        my_bgg_data = present_sidebar(main_screen)
     with main_screen.container():
-        present_main_screen(main_screen, my_bgg_data, error_msg)
+        present_main_screen(main_screen, my_bgg_data)
         check_for_new_data()
     del my_bgg_data
 

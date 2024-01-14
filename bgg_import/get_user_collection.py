@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from io import StringIO
 import pandas as pd
 import streamlit as st
 
-from my_gdrive.search import search
+from my_gdrive.search import file_search
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
 from bgg_import.import_xml_from_bgg import import_xml_from_bgg
@@ -44,28 +44,35 @@ def import_user_collection(username: str, user_folder_id: str, refresh: int) -> 
     """
     if refresh > 0:
         q = f'"{user_folder_id}" in parents and name contains "user_collection"'
-        item = search(query=q)
+        try:
+            item = file_search(query=q)
+        except ValueError:
+            item = None
         if item:
             file_id = item[0]["id"]
             last_imported = item[0]["modifiedTime"]
             last_imported = datetime.strptime(last_imported, "%Y-%m-%dT%H:%M:%S.%fZ")
             how_fresh = datetime.now() - last_imported
             if how_fresh.days < refresh:
-                df = load_zip(file_id=file_id)
-                import_msg = f'Cached collection loaded. Number of items: {len(df)}.'
-                return UserCollection(True, import_msg, df)
+                try:
+                    df = load_zip(file_id=file_id)
+                    import_msg = f'Cached collection loaded. Number of items: {len(df)}.'
+                    return UserCollection(True, import_msg, df)
+                except ValueError:
+                    pass
 
-    answer = import_xml_from_bgg(f'collection?username={username}&stats=1')
-    if not answer.status:
-        return UserCollection(False, answer.response, pd.DataFrame())
+    try:
+        answer = import_xml_from_bgg(f'collection?username={username}&stats=1')
+    except ValueError:
+        return UserCollection(False, "BGG website error", pd.DataFrame())
     # Game name and general game information
-    if answer.data.find('totalitems="0"') >= 0:
+    if answer.find('totalitems="0"') >= 0:
         # the collection is empty
         return UserCollection(True, "Collection is empty.", pd.DataFrame())
     try:
-        df = pd.read_xml(StringIO(answer.data))
-    except Exception as err:
-        return UserCollection(False, str(type(err)), pd.DataFrame())
+        df = pd.read_xml(StringIO(answer))
+    except Exception as error:
+        return UserCollection(False, str(type(error)), pd.DataFrame())
     df = df[["objectid", "name", "yearpublished", "numplays"]]
     # filling missing publishing years
     df["yearpublished"] = df["yearpublished"].fillna(0)
@@ -73,7 +80,7 @@ def import_user_collection(username: str, user_folder_id: str, refresh: int) -> 
 
     # User ratings
     try:
-        df_rating = pd.read_xml(StringIO(answer.data), xpath=".//rating")
+        df_rating = pd.read_xml(StringIO(answer), xpath=".//rating")
         df_rating = pd.DataFrame(df_rating["value"])
         df_rating.rename(columns={"value": "user_rating"}, inplace=True)
     except ValueError:
@@ -84,7 +91,7 @@ def import_user_collection(username: str, user_folder_id: str, refresh: int) -> 
     df = pd.concat([df, df_rating], axis=1).reset_index(drop=True)
 
     # User information related to the games, like owned, ...
-    df_status = pd.read_xml(StringIO(answer.data), xpath=".//status")
+    df_status = pd.read_xml(StringIO(answer), xpath=".//status")
     df = pd.concat([df, df_status], axis=1).reset_index(drop=True)
 
     df = df.sort_values("yearpublished").reset_index()

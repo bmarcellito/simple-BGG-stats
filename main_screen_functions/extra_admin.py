@@ -2,12 +2,8 @@ import streamlit as st
 
 from main_screen_functions.presentation_hack import clear_ph_element
 from main_screen_functions.bgg_data_class import BggData
-from time import sleep
 import gc
 from sys import getsizeof
-import sys
-from my_logger import log_info, log_error
-from bgg_import.get_functions import get_current_rankings
 
 
 def admin_button(main_screen) -> None:

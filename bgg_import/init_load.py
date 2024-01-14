@@ -30,9 +30,4 @@ def init_load() -> None:
     thread_user_cache.name = "init_username_cache"
     add_script_run_ctx(thread_user_cache)
     thread_user_cache.start()
-
-    # thread_maintain_tokens = Thread(target=maintain_tokens)
-    # thread_maintain_tokens.name = "maintain_tokens"
-    # add_script_run_ctx(thread_maintain_tokens)
-    # thread_maintain_tokens.start()
     return None

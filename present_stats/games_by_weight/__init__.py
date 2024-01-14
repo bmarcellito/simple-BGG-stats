@@ -40,6 +40,7 @@ def present_games_by_weight(my_bgg_data: BggData) -> None:
         if len(df_plays) == 0:
             st.write("No data to show :(")
         else:
-            st.line_chart(df_plays, x="Date", y=["Average weight of monthly plays", "Rolling window average"], height=400)
+            st.line_chart(df_plays, x="Date", y=["Average weight of monthly plays", "Rolling window average"],
+                          height=400)
         add_description("games_by_weight")
     return None

@@ -3,7 +3,7 @@ import pandas as pd
 
 from my_gdrive.load_functions import load_zip
 from my_gdrive.save_functions import overwrite_background
-from my_gdrive.search import search
+from my_gdrive.search import file_search
 from my_logger import log_info, log_error
 
 
@@ -28,9 +28,11 @@ def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFr
 
     # identifying the historical data files
     files_to_import = []
-    items = search(query=f'"folder_original" in parents')
+    try:
+        items = file_search(query=f'"folder_original" in parents')
+    except ValueError:
+        items = None
     if not items:
-        # log_info(f'Processed Historical rankings loaded. No historical original data found')
         return df_historical
     for item in items:
         if re.match(r'\d{4}-\d{2}-\d{2}', item['name']):
@@ -39,18 +41,19 @@ def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFr
             name = name[:name_len - 4]
             if not (name in existing_imports):
                 files_to_import.append(item)
-    files_to_import.sort(key=sort_files)
     if not files_to_import:
         if df_historical.empty:
             log_error("import_current_ranking - No game info list available, no processed historical game "
                       "rankings available.")
-        # else:
-        #     log_info(f'Historical ranking loaded. No new data')
         return df_historical
 
     # each iteration loads a file, and adds the ranking information from it as a column to the historical dataframe
+    files_to_import.sort(key=sort_files)
     for step, i in enumerate(files_to_import):
-        historical_loaded = load_zip(file_id=i["id"])
+        try:
+            historical_loaded = load_zip(file_id=i["id"])
+        except ValueError:
+            continue
         historical_loaded = historical_loaded[["ID", "Rank"]]
         column_name = i["name"]
         name_len = len(column_name)

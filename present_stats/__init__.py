@@ -22,7 +22,8 @@ def set_state(selectbox_name: str) -> None:
         st.session_state.previous_user = st.session_state.bgg_username
     if st.session_state.previous_user != st.session_state.bgg_username:
         previous_name = f'stat_key_{st.session_state.previous_user}'
-        del st.session_state[previous_name]
+        if previous_name in st.session_state:
+            del st.session_state[previous_name]
     st.session_state.previous_user = st.session_state.bgg_username
 
 

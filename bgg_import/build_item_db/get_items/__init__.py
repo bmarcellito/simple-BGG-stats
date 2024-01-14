@@ -9,11 +9,12 @@ from my_logger import log_error
 def get_100_items(games_to_import_list: list, global_game_infodb: pd.DataFrame, global_play_numdb: pd.DataFrame) \
         -> (pd.DataFrame, pd.DataFrame, bool):
     list_of_games = ",".join(str(x) for x in games_to_import_list)
-    answer = import_xml_from_bgg(f'thing?id={list_of_games}&stats=1')
-    if not answer.status:
+    try:
+        answer = import_xml_from_bgg(f'thing?id={list_of_games}&stats=1')
+    except ValueError:
         return pd.DataFrame, pd.DataFrame, True
 
-    xml_list = answer.data.split("</item>")
+    xml_list = answer.split("</item>")
     for i in range(1, len(xml_list)):
         xml_list[i] = '<?xml version="1.0" encoding="utf-8"?><items>' + xml_list[i] + "</item></items>"
     xml_list[0] = xml_list[0] + "</item></items>"

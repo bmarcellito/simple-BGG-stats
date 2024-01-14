@@ -3,7 +3,10 @@ from my_gdrive.constants import replace_names
 
 
 def create_folder(parent_folder: str, folder_name: str) -> str:
-    service = authenticate()
+    try:
+        service = authenticate()
+    except ValueError:
+        raise ValueError("Failed creating folder")
     updated_parent_folder = replace_names(parent_folder)
     file_metadata = {
         'name': folder_name,
