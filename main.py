@@ -46,9 +46,6 @@ if __name__ == "__main__":
         st.session_state.user_state = "No_user_selected"
     main()
 
-    # TODO import class - response, status + specific data class??? + öröklés?
-    # TODO file reading, web reading no endless loop, but give up sometimes
-    # TODO google load timeout handle
     # TODO remove not used columns to save memory
     # TODO historic ranks: best rank counts objectID as well -> error
     # TODO remove prev_owned, trade, ... from collection
@@ -61,13 +58,9 @@ if __name__ == "__main__":
     # TODO some stat calculation can be separated into multiple functions
     # TODO cache writing semaphore
     # TODO change token mgmt - separate token for each file
-    # TODO new game appears in a new historic file - what will happen?
-    # TODO stat for every year: average publication year / complexity of games tried
-    # TODO stat for every year: average publication year / complexity of games played
-    # TODO stat for every year: average publication year / complexity of games known
     # TODO favor games: most played game every year
     # TODO favor games: highest rated game for every year by publication year
     # TODO favor games: highest rated game for every year among the newly tried games that year
-    # TODO stat: % of newly tried games - how many were published that year / earlier
     # TODO datetime.now should be based on server time
     # TODO schema for BGG TOP list
+    # TODO new game appears in a new historic file - what will happen?

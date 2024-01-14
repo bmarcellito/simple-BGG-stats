@@ -13,7 +13,7 @@ def present_bgg_toplist(my_bgg_data: BggData) -> None:
 
     with st.spinner('Please wait, calculating statistics...'):
         df_historic_rankings = get_historic_rankings()
-        df_result_cum = calculate_bgg_toplist(df_historic_rankings, my_bgg_data.user_plays, cut_year)
+        df_result_cum = calculate_bgg_toplist(df_historic_rankings.data, my_bgg_data.user_plays, cut_year)
 
     if len(df_result_cum) == 0:
         st.write("No data to show :(")

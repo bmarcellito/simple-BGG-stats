@@ -11,19 +11,27 @@ def load(file_id: str) -> io.BytesIO:
         service = authenticate()
     except ValueError:
         raise ValueError("Failed to load file")
+
     try:
         request = service.files().get_media(fileId=file_id)
-        file = io.BytesIO()
-        downloader = MediaIoBaseDownload(file, request)
-        done = False
-        while done is False:
-            try:
-                status, done = downloader.next_chunk()
-            except Exception as error:
-                log_error(f'load - While loading file, an error occurred: {error}')
     except Exception as error:
         log_error(f'load - While loading file, an error occurred: {type(error)}')
         raise ValueError("Failed to load file")
+
+    file = io.BytesIO()
+    try:
+        downloader = MediaIoBaseDownload(file, request)
+    except Exception as error:
+        log_error(f'load - While loading file, an error occurred: {type(error)}')
+        raise ValueError("Failed to load file")
+
+    done = False
+    while done is False:
+        try:
+            status, done = downloader.next_chunk()
+        except Exception as error:
+            log_error(f'load - While loading file, an error occurred: {type(error)}')
+            raise ValueError("Failed to load file")
     return file
 
 

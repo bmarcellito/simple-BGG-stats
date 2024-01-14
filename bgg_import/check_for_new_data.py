@@ -9,11 +9,10 @@ from bgg_import.import_historic_ranking import import_historic_ranking
 
 
 def check_globals() -> None:
-    # TODO redesign with cache delete
     df_current_rankings = get_current_rankings()
     df_historic_rankings = get_historic_rankings()
-    import_current_ranking(df_current_rankings)
-    import_historic_ranking(df_historic_rankings)
+    df_current_rankings.data = import_current_ranking(df_current_rankings.data)
+    df_historic_rankings.data = import_historic_ranking(df_historic_rankings.data)
     return None
 
 

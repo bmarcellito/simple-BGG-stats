@@ -7,6 +7,25 @@ from my_gdrive.search import file_search
 from my_logger import log_info, log_error
 
 
+def check_for_new_import(existing_imports: list) -> list:
+    # identifying the historical data files
+    files_to_import = []
+    try:
+        items = file_search(query=f'"folder_original" in parents')
+    except ValueError:
+        return []
+    if not items:
+        return []
+    for item in items:
+        if re.match(r'\d{4}-\d{2}-\d{2}', item['name']):
+            name = item["name"]
+            name_len = len(name)
+            name = name[:name_len - 4]
+            if not (name in existing_imports):
+                files_to_import.append(item)
+    return files_to_import
+
+
 def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFrame:
     """
     Historic game ranking information cannot be accessed via API at BGG
@@ -26,21 +45,7 @@ def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFr
         df_historical = pd.DataFrame(columns=["objectid", "best_rank"])
         existing_imports = []
 
-    # identifying the historical data files
-    files_to_import = []
-    try:
-        items = file_search(query=f'"folder_original" in parents')
-    except ValueError:
-        items = None
-    if not items:
-        return df_historical
-    for item in items:
-        if re.match(r'\d{4}-\d{2}-\d{2}', item['name']):
-            name = item["name"]
-            name_len = len(name)
-            name = name[:name_len - 4]
-            if not (name in existing_imports):
-                files_to_import.append(item)
+    files_to_import = check_for_new_import(existing_imports)
     if not files_to_import:
         if df_historical.empty:
             log_error("import_current_ranking - No game info list available, no processed historical game "
@@ -50,6 +55,7 @@ def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFr
     # each iteration loads a file, and adds the ranking information from it as a column to the historical dataframe
     files_to_import.sort(key=sort_files)
     for step, i in enumerate(files_to_import):
+        print(step)
         try:
             historical_loaded = load_zip(file_id=i["id"])
         except ValueError:
@@ -67,10 +73,8 @@ def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFr
     column_list[3:len(column_list)] = sorted(column_list[3:len(column_list)])
     df_historical = df_historical[column_list]
 
-    """ merge created cells with Nan as there are no information to fill in
-    This changes the data type from INT to FLOAT
-    Here we add 0s and change back the data type to INT
-    """
+    # merge created cells with Nan as there are no information to fill in -> changes data type from INT to FLOAT
+    # Here we add 0s and change back the data type to INT
     df_historical.fillna(0, inplace=True)
     column_list = list(df_historical.columns.values)
     del column_list[:3]
@@ -78,9 +82,10 @@ def import_historic_ranking(current_historic_ranking: pd.DataFrame) -> pd.DataFr
         df_historical = df_historical.astype({i: "int32"})
     df_historical = df_historical.reset_index()
 
-    # find the highest rank for each item
+    # find the best rank for each item
     for i in range(len(df_historical)):
         row = df_historical.iloc[[i]].values.flatten().tolist()
+        del row[:3]
         row_nonzero = [i for i in row if i != 0]
         df_historical.at[i, "best_rank"] = min(row_nonzero)
 

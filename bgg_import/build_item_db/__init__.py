@@ -37,8 +37,7 @@ def build_item_db_all(df_new_games: pd.DataFrame, df_new_plays: pd.DataFrame, gl
                       global_play_numdb: pd.DataFrame) -> (pd.DataFrame, pd.DataFrame):
     sum_error = True
     while sum_error:
-        # in rare cases there can be an XML read error and a second parse needed
-        # TODO find out why it happens
+        # TODO in rare cases there can be an XML read error and a second parse needed - why?
         games_to_import_list = create_import_list(df_new_games, df_new_plays, global_game_infodb)
         if not games_to_import_list:
             return global_game_infodb, global_play_numdb

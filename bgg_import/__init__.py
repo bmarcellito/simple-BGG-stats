@@ -12,6 +12,8 @@ from bgg_import.check_user import refresh_last_checked, get_user_last_checked
 def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggData:
     def age_of_cached_data() -> int:
         time_of_creation = str(get_user_last_checked(username))
+        if time_of_creation == "":
+            raise ValueError("Did not find data")
         time = datetime.strptime(time_of_creation, "%Y-%m-%d, %H:%M:%S")
         age = datetime.now() - time
         age_in_days = age.days
@@ -29,8 +31,11 @@ def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggDat
         refresh_last_checked(username)
         del fresh_user_collection
     if my_user_collection.status:
-        how_fresh = age_of_cached_data()
-        st.caption(f'{my_user_collection.import_msg} Data is {how_fresh} days old in cache.')
+        try:
+            how_fresh = age_of_cached_data()
+            st.caption(f'{my_user_collection.import_msg} Data is {how_fresh} days old in cache.')
+        except ValueError:
+            st.caption(f'{my_user_collection.import_msg}')
     else:
         st.caption(my_user_collection.import_msg)
         return BggData()
@@ -47,7 +52,6 @@ def import_user_data(username: str, user_folder_id: str, refresh: int) -> BggDat
 
     df_game_infodb = get_game_infodb()
     df_play_no_db = get_play_no_db()
-    # TODO should collect return value???
     df_game_infodb.data, df_play_no_db.data = build_item_db_all(my_user_collection.data, my_plays.data,
                                                                 df_game_infodb.data, df_play_no_db.data)
     username_cache = get_username_cache()

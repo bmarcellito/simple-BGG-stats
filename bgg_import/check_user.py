@@ -185,9 +185,7 @@ def refresh_last_checked(username: str) -> bool:
 def get_user_last_checked(username: str) -> str:
     df_username_cache = get_username_cache()
     if df_username_cache.data.empty:
-        # TODO give error msg instead
         return ""
-
     user_row = df_username_cache.data.query(f'username == "{username}"').reset_index()
     return user_row.at[0, "last_checked"]
 
@@ -195,8 +193,6 @@ def get_user_last_checked(username: str) -> str:
 def get_user_folder(username: str) -> str:
     df_username_cache = get_username_cache()
     if df_username_cache.data.empty:
-        # TODO give error msg instead
         return ""
-
     user_row = df_username_cache.data.query(f'username == "{username}"').reset_index()
     return user_row.at[0, "folder_id"]
